@@ -1,16 +1,16 @@
 RealisticShoes = RealisticShoes or {}
 
 RealisticShoes.SIZES = {
-    [36] = 6,
-    [37] = 8,
-    [38] = 12,
-    [39] = 13,
-    [40] = 14,
-    [41] = 13,
-    [42] = 12,
-    [43] = 10,
-    [44] = 7,
-    [45] = 5
+    {size=36, chance = 6},
+    {size=37, chance = 8},
+    {size=38, chance = 12},
+    {size=39, chance = 13},
+    {size=40, chance = 14},
+    {size=41, chance = 13},
+    {size=42, chance = 12},
+    {size=43, chance = 10},
+    {size=44, chance = 7},
+    {size=45, chance = 5}
 }
 
 RealisticShoes.MEN_SIZES = {
@@ -51,4 +51,47 @@ function RealisticShoes.getRandomWomenSize()
     end
 
     return 38
+end
+
+function RealisticShoes.getRandomSize(onChar, isFemale)
+    if onChar then
+        if isFemale then
+            return RealisticShoes.getRandomWomenSize()
+        else
+            return RealisticShoes.getRandomMenSize()
+        end
+    else
+        local total = 0
+        local rand = ZombRand(100)
+        for _, entry in ipairs(RealisticShoes.SIZES) do
+            total = total + entry.chance
+            if rand < total then return entry.size end
+        end
+    end
+    
+    return 40
+end
+
+function RealisticShoes.getPlayerSize(player)
+    if not player:getModData().RealisticShoes then
+        player:getModData().RealisticShoes = {
+            size = RealisticClothes.getRandomSize(true, player:isFemale())
+        }
+    end
+
+    return player:getModData().RealisticShoes.size
+end
+
+
+function RealisticShoes.getOrCreateModData(shoes, size, onChar, isFemale)
+    local data = shoes:getModData()
+    if not data.RealisticShoes then
+        if not size then
+            size = RealisticShoes.getRandomSize(onChar, isFemale)
+        end
+
+        data.RealisticShoes = {size = size, reveal = false, hint = false}
+    end
+
+    return data.RealisticShoes
 end

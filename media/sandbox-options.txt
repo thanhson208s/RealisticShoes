@@ -1,7 +1,9 @@
 VERSION = 1,
 
-option RealisticClothes.DistributionMode
+option RealisticShoes.DistributionMode
 {
-    type = boolean, default = true,
-    page = RealisticClothes, translation = RealisticClothes_NeedTailoringLevel,
+    type = enum, numValues = 3, default = 1,
+    page = RealisticShoes,
+    translation = RealisticShoes_DistributionMode,
+    valueTranslation = RealisticShoes_DistributionMod_value,
 }
