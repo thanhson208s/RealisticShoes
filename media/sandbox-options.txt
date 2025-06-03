@@ -1,0 +1,7 @@
+VERSION = 1,
+
+option RealisticClothes.DistributionMode
+{
+    type = boolean, default = true,
+    page = RealisticClothes, translation = RealisticClothes_NeedTailoringLevel,
+}
