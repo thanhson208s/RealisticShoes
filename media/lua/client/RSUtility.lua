@@ -69,13 +69,13 @@ function RealisticShoes.getRandomSize(onChar, isFemale)
         end
     end
     
-    return 40
+    return 40.5
 end
 
 function RealisticShoes.getPlayerSize(player)
     if not player:getModData().RealisticShoes then
         player:getModData().RealisticShoes = {
-            size = RealisticClothes.getRandomSize(true, player:isFemale())
+            size = RealisticShoes.getRandomSize(true, player:isFemale())
         }
     end
 
@@ -94,4 +94,70 @@ function RealisticShoes.getOrCreateModData(shoes, size, onChar, isFemale)
     end
 
     return data.RealisticShoes
+end
+
+function RealisticShoes.hasModData(item)
+    local data = item:getModData()
+    return data and data.RealisticShoes
+end
+
+function RealisticShoes.getSizeText(size)
+    return "EU " .. size
+end
+
+function RealisticShoes.getHintText(diff)
+    local text
+    if diff < -1 then
+        text = getText("IGUI_Hint_Shoes_Too_Tight")
+    elseif diff == -1 then
+        text = getText("IGUI_Hint_Shoes_Tight")
+    elseif diff < 0 then
+        text = getText("IGUI_Hint_Shoes_Slightly_Tight")
+    elseif diff == 0 then
+        text = getText("IGUI_Hint_Shoes_Fit")
+    elseif diff < 1 then
+        text = getText("IGUI_Hint_Shoes_Slightly_Loose")
+    elseif diff == 1 then
+        text = getText("IGUI_Hint_Shoes_Loose")
+    else
+        text = getText("IGUI_Hint_Shoes_Too_Loose")
+    end
+
+    return "(" .. text .. ")"
+end
+
+function RealisticShoes.getDiffText(diff, size)
+    local text
+    if diff < -1 then
+        text = getText("IGUI_Say_Shoes_Too_Tight")
+    elseif diff == -1 then
+        text = getText("IGUI_Say_Shoes_Tight")
+    elseif diff < 0 then
+        text = getText("IGUI_Say_Shoes_Slightly_Tight")
+    elseif diff == 0 then
+        text = getText("IGUI_Say_Shoes_Fit")
+    elseif diff < 1 then
+        text = getText("IGUI_Say_Shoes_Slightly_Loose")
+    elseif diff == 1 then
+        text = getText("IGUI_Say_Shoes_Loose")
+    else
+        text = getText("IGUI_Say_Shoes_Too_Loose")
+    end
+
+    if size ~= nil then
+        text = RealisticShoes.getSizeText(size) .. '. ' .. text
+    end
+
+    return text
+end
+
+function RealisticShoes.checkShoesSize(player, items)
+    local inv = player:getInventory()
+    for i, item in ipairs(items) do
+        local container = item:getContainer()
+        if container and container ~= inv then
+            ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, container, inv))
+        end
+        ISTimedActionQueue.add(ISCheckShoesSize:new(player, item, 50))
+    end
 end

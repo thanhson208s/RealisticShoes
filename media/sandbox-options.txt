@@ -5,5 +5,5 @@ option RealisticShoes.DistributionMode
     type = enum, numValues = 3, default = 1,
     page = RealisticShoes,
     translation = RealisticShoes_DistributionMode,
-    valueTranslation = RealisticShoes_DistributionMod_value,
+    valueTranslation = RealisticShoes_DistributionMode,
 }
