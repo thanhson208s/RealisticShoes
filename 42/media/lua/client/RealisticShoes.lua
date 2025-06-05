@@ -69,7 +69,7 @@ do
 
         if diff < -1 or (not data.reveal and not data.hint) then
             data.hint = true    -- player can guess approximately the size of the clothing
-            self.character:Say(RealisticShoes.getHintText(diff))
+            self.character:Say(RealisticShoes.getDiffText(diff))
 
             if diff < -1 then
                 self.item:setJobDelta(0.0)

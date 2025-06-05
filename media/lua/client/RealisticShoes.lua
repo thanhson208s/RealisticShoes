@@ -1,4 +1,13 @@
+-- TODO:
+-- Shoes take damage from walking on glass, corpses (take in factors such as resistances, protections, tailoring and maintenance, blood, dirtiness, wetness)
+-- Stomping pain, injury
+-- Loose shoes reduce speed, increase trip chance
+-- Tight shoes cause pain, increase walking/running/sprinting
+-- Recondition: glue, wood glue, twine, thread, cleaning liquid, needle, brush
+-- Exclude flipflop and slipper
+
 RealisticShoes = RealisticShoes or {}
+RealisticShoes.FrequentFactor = 1.0
 RealisticShoes.Debug = true
 
 function RealisticShoes.onInitMod()
@@ -28,33 +37,88 @@ Events.OnPlayerUpdate.Add(RealisticShoes.onUpdatePlayer)
 
 function RealisticShoes.onFillInvObjMenu(playerId, context, items)
     local player = getSpecificPlayer(playerId)
-    local listShoes = {}
-    for _, v in ipairs(items) do
-        if type(v) == 'table' then
-            if v.items and #v.items > 1 then
-                for j = 2, #v.items do
-                    local e = v.items[j]
-                    if RealisticShoes.isShoes(e) then
-                        if not RealisticShoes.hasModData(e) or not RealisticShoes.getOrCreateModData(e).reveal then
-                            table.insert(listShoes, e)
-                        end
-                    end
-                end
-            end
-        else
-            if RealisticShoes.isShoes(v) then
-                if not RealisticShoes.hasModData(v) or not RealisticShoes.getOrCreateModData(v).reveal then
-                    table.insert(listShoes, v)
-                end
+
+    local shoes = nil
+    if #items == 1 then
+        shoes = items[1]
+        if type(shoes) == 'table' then
+            if shoes.items and #shoes.items == 2 then
+                shoes = shoes.items[2]
+            else
+                shoes = nil
             end
         end
     end
+    if shoes and RealisticShoes.isShoes(shoes) then
+        RealisticShoes.addReconditionOption(shoes, player, context)
 
-    if #listShoes > 0 then
-        context:addOption(getText("IGUI_JobType_CheckShoesSize"), player, RealisticShoes.checkShoesSize, listShoes)
+        -- RealisticShoes.debugLog('condition: ' .. tostring(clothingItem:getCondition()) .. '|' .. tostring(clothingItem:getConditionMax()))
+        -- RealisticShoes.debugLog('insulation: ' .. tostring(clothingItem:getInsulation()) .. '|' .. tostring(RealisticClothes.getOriginalInsulation(clothingItem)))
+        -- RealisticShoes.debugLog('combat speed modifier: ' .. tostring(clothingItem:getCombatSpeedModifier()) .. '|' .. tostring(RealisticClothes.getOriginalCombatSpeedModifier(clothingItem)))
     end
+
+    RealisticShoes.addCheckSizeOption(items, player, context)
 end
 Events.OnFillInventoryObjectContextMenu.Add(RealisticShoes.onFillInvObjMenu)
+
+do
+    local ISWearClothing_new = ISWearClothing.new
+    function ISWearClothing:new(character, item, time, ...)
+        if not RealisticShoes.isShoes(item) then
+            return ISWearClothing_new(self, character, item, time, ...)
+        end
+
+        local data = RealisticShoes.getOrCreateModData(item)
+        local playerSize = RealisticShoes.getPlayerSize(character)
+        local diff = data.diff - playerSize
+
+        local timeMultiplier = 1.0
+        if diff < 0 then
+            timeMultiplier = 1 + 0.25 * 2^(math.abs(diff * 2) - 1)
+        else
+            timeMultiplier = 1 - 0.05 * diff
+        end
+
+        return ISWearClothing_new(self, character, item, time * timeMultiplier, ...)
+    end
+
+    local ISWearClothing_perform = ISWearClothing.perform
+    function ISWearClothing:perform()
+        if not RealisticShoes.isShoes(self.item) then
+            return ISWearClothing_perform(self)
+        end
+
+        local data = RealisticShoes.getOrCreateModData(self.item)
+        local playerSize = RealisticShoes.getPlayerSize(self.character)
+        local diff = data.size - playerSize
+
+        if diff < -1 or (not data.reveal and not data.hint) then
+            data.hint = true    -- player can guess approximately the size of the clothing
+            self.character:Say(RealisticShoes.getDiffText(diff))
+
+            if diff < -1 then
+                self.item:setJobDelta(0.0)
+                self.item:getContainer():setDrawDirty(true)
+                return
+            end
+        end
+
+        return ISWearClothing_perform(self)
+    end
+end
+
+do
+    local ISUnequipAction_perform = ISUnequipAction.perform
+    function ISUnequipAction:perform()
+        local result = ISUnequipAction_perform(self)
+
+        if RealisticShoes.isShoes(self.item) then
+            
+        end
+
+        return result
+    end
+end
 
 do -- Handle unequipping shoes when moving them to other containers
     local ISInventoryTransferAction_perform = ISInventoryTransferAction.perform

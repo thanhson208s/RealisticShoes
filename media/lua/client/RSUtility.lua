@@ -73,6 +73,10 @@ function RealisticShoes.getRandomSize(onChar, isFemale)
 end
 
 function RealisticShoes.getPlayerSize(player)
+    return RealisticShoes.getPlayerOriginalSize(player) + RealisticShoes.getPlayerExtraSize(player)
+end
+
+function RealisticShoes.getPlayerOriginalSize(player)
     if not player:getModData().RealisticShoes then
         player:getModData().RealisticShoes = {
             size = RealisticShoes.getRandomSize(true, player:isFemale())
@@ -82,6 +86,16 @@ function RealisticShoes.getPlayerSize(player)
     return player:getModData().RealisticShoes.size
 end
 
+function RealisticShoes.getPlayerExtraSize(player)
+    local weight = player:getNutrition():getWeight()
+    if weight >= 100 then
+        return 1
+    elseif weight >= 85 then
+        return 0.5
+    end
+
+    return 0
+end
 
 function RealisticShoes.getOrCreateModData(shoes, size)
     local data = shoes:getModData()
@@ -129,19 +143,19 @@ end
 function RealisticShoes.getDiffText(diff, size)
     local text
     if diff < -1 then
-        text = getText("IGUI_Say_Shoes_Too_Tight")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Too_Tight0") or getText("IGUI_Say_Shoes_Too_Tight1")
     elseif diff == -1 then
-        text = getText("IGUI_Say_Shoes_Tight")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Tight0") or getText("IGUI_Say_Shoes_Tight1")
     elseif diff < 0 then
-        text = getText("IGUI_Say_Shoes_Slightly_Tight")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Slightly_Tight0") or getText("IGUI_Say_Shoes_Slightly_Tight1")
     elseif diff == 0 then
-        text = getText("IGUI_Say_Shoes_Fit")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Fit0") or getText("IGUI_Say_Shoes_Fit1")
     elseif diff < 1 then
-        text = getText("IGUI_Say_Shoes_Slightly_Loose")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Slightly_Loose0") or getText("IGUI_Say_Shoes_Slightly_Loose1")
     elseif diff == 1 then
-        text = getText("IGUI_Say_Shoes_Loose")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Loose0") or getText("IGUI_Say_Shoes_Loose1")
     else
-        text = getText("IGUI_Say_Shoes_Too_Loose")
+        text = ZombRand(2) == 0 and getText("IGUI_Say_Shoes_Too_Loose0") or getText("IGUI_Say_Shoes_Too_Loose1")
     end
 
     if size ~= nil then
@@ -155,6 +169,40 @@ function RealisticShoes.isShoes(item)
     return instanceof(item, "Clothing") and item:getBodyLocation() == "Shoes"
 end
 
+function RealisticShoes.getAdditionalWeightStr(player)
+    local extraSize = RealisticShoes.getPlayerExtraSize(player)
+
+    return 'EU ' .. RealisticShoes.getPlayerOriginalSize(player) .. (extraSize > 0 and ('+' .. extraSize) or '')
+end
+
+function RealisticShoes.addCheckSizeOption(items, player, context)
+    local listShoes = {}
+    for _, v in ipairs(items) do
+        if type(v) == 'table' then
+            if v.items and #v.items > 1 then
+                for j = 2, #v.items do
+                    local e = v.items[j]
+                    if RealisticShoes.isShoes(e) then
+                        if not RealisticShoes.hasModData(e) or not RealisticShoes.getOrCreateModData(e).reveal then
+                            table.insert(listShoes, e)
+                        end
+                    end
+                end
+            end
+        else
+            if RealisticShoes.isShoes(v) then
+                if not RealisticShoes.hasModData(v) or not RealisticShoes.getOrCreateModData(v).reveal then
+                    table.insert(listShoes, v)
+                end
+            end
+        end
+    end
+
+    if #listShoes > 0 then
+        context:addOption(getText("IGUI_JobType_CheckShoesSize"), player, RealisticShoes.checkShoesSize, listShoes)
+    end
+end
+
 function RealisticShoes.checkShoesSize(player, items)
     local inv = player:getInventory()
     for i, item in ipairs(items) do
@@ -162,12 +210,62 @@ function RealisticShoes.checkShoesSize(player, items)
         if container and container ~= inv then
             ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, container, inv))
         end
-        ISTimedActionQueue.add(ISCheckShoesSize:new(player, item, 50))
+        ISTimedActionQueue.add(ISCheckShoesSize:new(player, item))
     end
 end
 
-function RealisticShoes.getAdditionalWeightStr(player)
-    local extraSize = RealisticShoes.getPlayerExtraSize(player)
+function RealisticShoes.predicateNeedle(item)
+    if item:isBroken() then return false end
+    return item:hasTag("Needle") or item:getType() == "Needle"
+end
 
-    return 'EU ' .. RealisticShoes.getPlayerOriginalSize(player) .. (extraSize > 0 and ('+' .. extraSize) or '')
+function RealisticShoes.predicateBrush(item)
+    if item:isBroken() then return false end
+    return item:hasTag("Paintbrush") or item:getType() == "Paintbrush"
+end
+
+function RealisticShoes.getColorForPercent(percent)
+    local color = ColorInfo.new(0, 0, 0, 1)
+    getCore():getBadHighlitedColor():interp(getCore():getGoodHighlitedColor(), percent, color)
+    return "<RGB:" .. color:getR() .. "," .. color:getG() .. "," .. color:getB() .. ">"
+end
+
+function RealisticShoes.getPotentialRepairForRecondition(item, player)
+end
+
+function RealisticShoes.getSuccessChanceForRecondition(item, player)
+end
+
+function RealisticShoes.addReconditionOption(item, player, context)
+    if item:getCondition() == item:getConditionMax() then return end
+
+    local repairedTimes = item:getHaveBeenRepaired() - 1
+    local potentialRepair = RealisticShoes.getPotentialRepairForRecondition(item, player)
+    local successChance = RealisticShoes.getSuccessChanceForRecondition(item, player)
+
+    local needle = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateNeedle)
+    local brush = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateBrush)
+
+    local option = context:addOption(getText("IGUI_JobType_ReconditionShoes"), player, RealisticShoes.reconditionShoes, item, needle, brush)
+    option.notAvailable = not (needle and brush)
+    option.toolTip = ISInventoryPaneContextMenu.addToolTip()
+    option.toolTip.description = " " .. RealisticShoes.getColorForPercent(potentialRepair) .. " " .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+    option.toolTip.description = option.toolTip.description .. " <LINE> " .. RealisticShoes.getColorForPercent(successChance) .. " " .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+    option.toolTip.description = option.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
+    option.toolTip.description = option.toolTip.description .. " <LINE>" .. (needle ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Needle")
+    option.toolTip.description = option.toolTip.description .. " <LINE>" .. (brush ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Paintbrush")
+    option.toolTip.description = option.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+end
+
+function RealisticShoes.reconditionShoes(player, item, needle, brush)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, needle)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, brush)
+
+    if player:isEquippedClothing(item) then
+        ISTimedActionQueue.add(ISUnequipAction:new(player, item, 50))
+    else
+        ISInventoryPaneContextMenu.transferIfNeeded(player, item)
+    end
+
+    ISTimedActionQueue.add(ISReconditionShoes:new(player, item, needle, brush))
 end

@@ -176,7 +176,7 @@ function RealisticShoes.checkShoesSize(player, items)
         if container and container ~= inv then
             ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, container, inv))
         end
-        ISTimedActionQueue.add(ISCheckShoesSize:new(player, item, 50))
+        ISTimedActionQueue.add(ISCheckShoesSize:new(player, item))
     end
 end
 
