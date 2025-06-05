@@ -1,3 +1,19 @@
-IGUI_EN = {	
+IGUI_EN = {
+	IGUI_Hint_Shoes_Slightly_Tight = "Slightly tight",
+	IGUI_Hint_Shoes_Slightly_Loose = "Slightly loose",
+	IGUI_Hint_Shoes_Tight = "Tight",
+	IGUI_Hint_Shoes_Fit = "Fit"
+	IGUI_Hint_Shoes_Loose = "Loose",
+	IGUI_Hint_Shoes_Too_Tight = "Too tight",
+	IGUI_Hint_Shoes_Too_Loose = "Too loose",
+	IGUI_JobType_CheckShoesSize = "Check shoes size",
+	IGUI_JobType_ReconditionShoes = "Recondition",
 
+	IGUI_Say_Shoes_Too_Tight = "",
+	IGUI_Say_Shoes_Tight = "",
+	IGUI_Say_Shoes_Slightly_Tight = "",
+	IGUI_Say_Shoes_Fit = "",
+	IGUI_Say_Shoes_Slightly_Loose = "",
+	IGUI_Say_Shoes_Loose = "",
+	IGUI_Say_Shoes_Too_Loose = "",
 }

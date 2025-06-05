@@ -13,7 +13,7 @@ function RealisticShoes.onCreatePlayer(playerId)
     local shoes = player:getWornItem("Shoes")
     if shoes then
         local size = RealisticShoes.getPlayerSize(player)
-        local data = RealisticShoes.getOrCreateModData(shoes, size, true, player:isFemale())
+        local data = RealisticShoes.getOrCreateModData(shoes, size)
         if not data.reveal then
             data.reveal = true
         end
@@ -34,7 +34,7 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
             if v.items and #v.items > 1 then
                 for j = 2, #v.items do
                     local e = v.items[j]
-                    if instanceof(e, "Clothing") and e:getBodyLocation() == "Shoes" then
+                    if RealisticShoes.isShoes(e) then
                         if not RealisticShoes.hasModData(e) or not RealisticShoes.getOrCreateModData(e).reveal then
                             table.insert(listShoes, e)
                         end
@@ -42,7 +42,7 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
                 end
             end
         else
-            if instanceof(v, "Clothing") and v:getBodyLocation() == "Shoes" then
+            if RealisticShoes.isShoes(v) then
                 if not RealisticShoes.hasModData(v) or not RealisticShoes.getOrCreateModData(v).reveal then
                     table.insert(listShoes, v)
                 end
@@ -56,10 +56,134 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
 end
 Events.OnFillInventoryObjectContextMenu.Add(RealisticShoes.onFillInvObjMenu)
 
+do -- Handle unequipping shoes when moving them to other containers
+    local ISInventoryTransferAction_perform = ISInventoryTransferAction.perform
+    function ISInventoryTransferAction:perform()
+        if not RealisticShoes.isShoes(self.item) then
+            return ISInventoryTransferAction_perform(self)
+        end
+
+        -- set all shoes on zombie to the same size of the first clothing initialized
+        local srcContainerType = self.srcContainer and self.srcContainer:getType() or ""
+        if srcContainerType == 'inventorymale' then
+            local size = RealisticShoes.getRandomMenSize()
+            RealisticShoes.getOrCreateModData(self.item, size)
+        end
+        if srcContainerType == 'inventoryfemale' then
+            local size = RealisticShoes.getRandomWomenSize()
+            RealisticShoes.getOrCreateModData(self.item, size)
+        end
+
+        -- shoes transfered to zombie corpes will be initialized first to prevent going through above logic
+        local destContainerType = self.destContainer and self.destContainer:getType() or ""
+        if destContainerType == 'inventorymale' or destContainerType == 'inventoryfemale' then
+            local size = RealisticShoes.getRandomSize(false)
+            RealisticShoes.getOrCreateModData(self.item, size)
+        end
+
+        return ISInventoryTransferAction_perform(self)
+    end
+end
+
+do  -- Modify character screen to show clothing size according to weight
+    local ISCharacterScreen_drawTextRight = ISCharacterScreen.drawTextRight
+    local ISCharacterScreen_drawText = ISCharacterScreen.drawText
+    local ISCharacterScreen_drawTexture = ISCharacterScreen.drawTexture
+    local ISCharacterScreen_isRedendering = false
+    local hasWeightText = false
+    local hasWeightIcon = false
+    local savedWidth, savedX, savedY, savedFont
+
+    -- when draw the weight label
+    local function drawTextRight(self, str, x, y, ...)
+        if str == getText("IGUI_char_Weight") then
+            hasWeightText = true
+            local nutrition = self.char:getNutrition()
+            if nutrition:isIncWeight() or nutrition:isIncWeightLot() or nutrition:isDecWeight() then
+                hasWeightIcon = true
+            end
+        end
+        return ISCharacterScreen_drawTextRight(self, str, x, y, ...)
+    end
+
+    -- when draw the weight value
+    local function drawText(self, str, x, y, a, b, c, d, font, ...)
+        if hasWeightText then
+            hasWeightText = false
+            local width = getTextManager():MeasureStringX(UIFont.Small, str)
+            
+            if hasWeightIcon then
+                savedWidth = width
+                savedX = x
+                savedY = y
+                savedFont = font
+            else
+                -- draw the size label after weight value
+                local sizeStr = '(' .. RealisticShoes.getAdditionalWeightStr(self.char) .. ')'
+                ISCharacterScreen_drawText(self, sizeStr, x + width + 2, y, 1, 1, 1, 1, font or UIFont.Small, ...)
+            end
+        end
+        return ISCharacterScreen_drawText(self, str, x, y, a, b, c, d, font, ...)
+    end
+
+    local function drawTexture(self, ...)
+        if hasWeightIcon and not hasWeightText then
+            hasWeightIcon = false
+            -- draw the size label after weight icon
+            local sizeStr = '(' .. RealisticShoes.getAdditionalWeightStr(self.char) .. ')'
+            ISCharacterScreen_drawText(self, sizeStr, savedX + savedWidth + 17, savedY, 1, 1, 1, 1, savedFont or UIFont.Small, ...)
+        end
+        return ISCharacterScreen_drawTexture(self, ...)
+    end
+
+    local ISCharacterScreen_render = ISCharacterScreen.render
+    function ISCharacterScreen:render()
+        if ISCharacterScreen_isRedendering then
+            if ISCharacterScreen_drawTextRight and self.drawTextRight == drawTextRight then
+                self.drawTextRight = ISCharacterScreen_drawTextRight
+            end
+            if ISCharacterScreen_drawText and self.drawText == drawText then
+                self.drawText = ISCharacterScreen_drawText
+            end
+            if ISCharacterScreen_drawTexture and self.drawTexture == drawTexture then
+                self.drawTexture = ISCharacterScreen_drawTexture
+            end
+            return ISCharacterScreen_render(self)
+        end
+
+        hasWeightText = false
+        hasWeightIcon = false
+        ISCharacterScreen_drawTextRight = self.drawTextRight
+        self.drawTextRight = drawTextRight
+        ISCharacterScreen_drawText = self.drawText
+        self.drawText = drawText
+        ISCharacterScreen_drawTexture = self.drawTexture
+        self.drawTexture = drawTexture
+
+        ISCharacterScreen_isRedendering = true
+        local ok, result = pcall(ISCharacterScreen_render, self)
+        ISCharacterScreen_isRedendering = false
+
+        if ISCharacterScreen_drawTextRight then
+            self.drawTextRight = ISCharacterScreen_drawTextRight
+        end
+        if ISCharacterScreen_drawText then
+            self.drawText = ISCharacterScreen_drawText
+        end
+        if ISCharacterScreen_drawTexture then
+            self.drawTexture = ISCharacterScreen_drawTexture
+        end
+
+        if not ok then error('Unexpected error in ISCharacterScreen:render() - ' .. result) end
+
+        return result
+    end
+end
+
 do -- Modify shoes tooltip to include size
     local ISToolTipInv_render = ISToolTipInv.render
     function ISToolTipInv:render()
-        if not self.item or not instanceof(self.item, "Clothing") or not self.item:getBodyLocation() == "Shoes" then
+        if not self.item or not RealisticShoes.isShoes(self.item) then
             return ISToolTipInv_render(self)
         end
 
@@ -125,7 +249,7 @@ do -- Replace display name of inventory items to include shoes size
         Clothing_getName = mt.getName
         mt.getName = function(self)
             local name = Clothing_getName(self)
-            if self:getBodyLocation() == "Shoes" and RealisticShoes.hasModData(self) then
+            if RealisticShoes.isShoes(self) and RealisticShoes.hasModData(self) then
                 local data = RealisticShoes.getOrCreateModData(self)
                 if data.reveal then name = name .. ' (' .. RealisticShoes.getSizeText(data.size) .. ')' end
             end

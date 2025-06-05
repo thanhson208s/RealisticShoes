@@ -83,11 +83,11 @@ function RealisticShoes.getPlayerSize(player)
 end
 
 
-function RealisticShoes.getOrCreateModData(shoes, size, onChar, isFemale)
+function RealisticShoes.getOrCreateModData(shoes, size)
     local data = shoes:getModData()
     if not data.RealisticShoes then
         if not size then
-            size = RealisticShoes.getRandomSize(onChar, isFemale)
+            size = RealisticShoes.getRandomSize(false)
         end
 
         data.RealisticShoes = {size = size, reveal = false, hint = false}
@@ -151,6 +151,10 @@ function RealisticShoes.getDiffText(diff, size)
     return text
 end
 
+function RealisticShoes.isShoes(item)
+    return instanceof(item, "Clothing") and item:getBodyLocation() == "Shoes"
+end
+
 function RealisticShoes.checkShoesSize(player, items)
     local inv = player:getInventory()
     for i, item in ipairs(items) do
@@ -160,4 +164,10 @@ function RealisticShoes.checkShoesSize(player, items)
         end
         ISTimedActionQueue.add(ISCheckShoesSize:new(player, item, 50))
     end
+end
+
+function RealisticShoes.getAdditionalWeightStr(player)
+    local extraSize = RealisticShoes.getPlayerExtraSize(player)
+
+    return 'EU ' .. RealisticShoes.getPlayerOriginalSize(player) .. (extraSize > 0 and ('+' .. extraSize) or '')
 end
