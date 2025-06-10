@@ -1,7 +1,32 @@
+-- TODO:
+-- Shoes take damage from walking on glass, corpses (take in factors such as resistances, protections, tailoring and maintenance, blood, dirtiness, wetness)
+-- Stomping pain, injury
+-- Loose shoes reduce speed, increase trip chance
+-- Tight shoes cause pain, increase walking/running/sprinting
+-- Recondition: glue x 2, duct tape x 2, adhesive tape x 4, other same type, scissors, need tailoring level based on protection
+-- Add tailoring xp
+
 RealisticShoes = RealisticShoes or {}
+RealisticShoes.FrequentFactor = 1.0
+RealisticShoes.NeedTailoringLevel = true
+RealisticShoes.TailoringXpMultiplier = 1.0
+RealisticShoes.EnableShoesDegrading = true
+RealisticShoes.ChanceToDegradeOnFailure = 0.5
 RealisticShoes.Debug = true
 
 function RealisticShoes.onInitMod()
+    local distributionMode = SandboxVars.RealisticShoes.DistributionMode
+    RealisticShoes.FrequentFactor = 1.0
+    if distributionMode == 2 then
+        RealisticShoes.FrequentFactor = 2.0
+    elseif distributionMode == 3 then
+        RealisticShoes.FrequentFactor = 4.0
+    end
+
+    RealisticShoes.NeedTailoringLevel = SandboxVars.RealisticShoes.NeedTailoringLevel
+    RealisticShoes.TailoringXpMultiplier = SandboxVars.RealisticShoes.TailoringXpMultiplier or 1.0
+    RealisticShoes.EnableClothesDegrading = SandboxVars.RealisticShoes.EnableClothesDegrading
+    RealisticShoes.ChanceToDegradeOnFailure = SandboxVars.RealisticShoes.ChanceToDegradeOnFailure or 0.5
 end
 Events.OnInitGlobalModData.Add(RealisticShoes.onInitMod)
 
@@ -22,41 +47,53 @@ end
 Events.OnCreatePlayer.Add(RealisticShoes.onCreatePlayer)
 
 function RealisticShoes.onUpdatePlayer(player)
-
+    -- TODO
 end
 Events.OnPlayerUpdate.Add(RealisticShoes.onUpdatePlayer)
 
 function RealisticShoes.onFillInvObjMenu(playerId, context, items)
     local player = getSpecificPlayer(playerId)
-    local listShoes = {}
-    for _, v in ipairs(items) do
-        if type(v) == 'table' then
-            if v.items and #v.items > 1 then
-                for j = 2, #v.items do
-                    local e = v.items[j]
-                    if RealisticShoes.isShoes(e) then
-                        if not RealisticShoes.hasModData(e) or not RealisticShoes.getOrCreateModData(e).reveal then
-                            table.insert(listShoes, e)
-                        end
-                    end
-                end
-            end
-        else
-            if RealisticShoes.isShoes(v) then
-                if not RealisticShoes.hasModData(v) or not RealisticShoes.getOrCreateModData(v).reveal then
-                    table.insert(listShoes, v)
-                end
+
+    local shoes = nil
+    if #items == 1 then
+        shoes = items[1]
+        if type(shoes) == 'table' then
+            if shoes.items and #shoes.items == 2 then
+                shoes = shoes.items[2]
+            else
+                shoes = nil
             end
         end
     end
-
-    if #listShoes > 0 then
-        context:addOption(getText("IGUI_JobType_CheckShoesSize"), player, RealisticShoes.checkShoesSize, listShoes)
+    if shoes and RealisticShoes.isShoes(shoes) then
+        RealisticShoes.addReconditionOption(shoes, player, context)
     end
+
+    RealisticShoes.addCheckSizeOption(items, player, context)
 end
 Events.OnFillInventoryObjectContextMenu.Add(RealisticShoes.onFillInvObjMenu)
 
-do
+do -- takes longer to wear tight shoes, can not wear too tight shoes
+    local ISWearClothing_new = ISWearClothing.new
+    function ISWearClothing:new(character, item, time, ...)
+        if not RealisticShoes.isShoes(item) then
+            return ISWearClothing_new(self, character, item, time, ...)
+        end
+
+        local data = RealisticShoes.getOrCreateModData(item)
+        local playerSize = RealisticShoes.getPlayerSize(character)
+        local diff = data.diff - playerSize
+
+        local timeMultiplier = 1.0
+        if diff < 0 then
+            timeMultiplier = 1 + 0.25 * 2^(math.abs(diff * 2) - 1)
+        else
+            timeMultiplier = 1 - 0.05 * diff
+        end
+
+        return ISWearClothing_new(self, character, item, time * timeMultiplier, ...)
+    end
+
     local ISWearClothing_perform = ISWearClothing.perform
     function ISWearClothing:perform()
         if not RealisticShoes.isShoes(self.item) then
@@ -68,7 +105,7 @@ do
         local diff = data.size - playerSize
 
         if diff < -1 or (not data.reveal and not data.hint) then
-            data.hint = true    -- player can guess approximately the size of the clothing
+            data.hint = true
             self.character:Say(RealisticShoes.getDiffText(diff))
 
             if diff < -1 then
@@ -82,19 +119,6 @@ do
     end
 end
 
-do
-    local ISUnequipAction_perform = ISUnequipAction.perform
-    function ISUnequipAction:perform()
-        local result = ISUnequipAction_perform(self)
-
-        if RealisticShoes.isShoes(self.item) then
-            
-        end
-
-        return result
-    end
-end
-
 do -- Handle unequipping shoes when moving them to other containers
     local ISInventoryTransferAction_perform = ISInventoryTransferAction.perform
     function ISInventoryTransferAction:perform()
@@ -102,7 +126,7 @@ do -- Handle unequipping shoes when moving them to other containers
             return ISInventoryTransferAction_perform(self)
         end
 
-        -- set all clothes on zombie to the same size of the first clothing initialized
+        -- set all shoes on zombie to the same size of the first clothing initialized
         local srcContainerType = self.srcContainer and self.srcContainer:getType() or ""
         if srcContainerType == 'inventorymale' then
             local size = RealisticShoes.getRandomMenSize()
@@ -113,7 +137,7 @@ do -- Handle unequipping shoes when moving them to other containers
             RealisticShoes.getOrCreateModData(self.item, size)
         end
 
-        -- clothes transfered to zombie corpes will be initialized first to prevent going through above logic
+        -- shoes transfered to zombie corpes will be initialized first to prevent going through above logic
         local destContainerType = self.destContainer and self.destContainer:getType() or ""
         if destContainerType == 'inventorymale' or destContainerType == 'inventoryfemale' then
             local size = RealisticShoes.getRandomSize(false)
@@ -124,7 +148,14 @@ do -- Handle unequipping shoes when moving them to other containers
     end
 end
 
-do  -- Modify character screen to show clothing size according to weight
+if getActivatedMods():contains("RealisticClothes") then
+    local RealisticClothes_getAdditionalWeightStr = RealisticClothes.getAdditionalWeightStr
+    RealisticClothes.getAdditionalWeightStr = function(player)
+        local str = RealisticClothes_getAdditionalWeightStr(player)
+        str = str .. ', ' .. RealisticShoes.getAdditionalWeightStr(player)
+        return str
+    end
+else
     local ISCharacterScreen_drawTextRight = ISCharacterScreen.drawTextRight
     local ISCharacterScreen_drawText = ISCharacterScreen.drawText
     local ISCharacterScreen_drawTexture = ISCharacterScreen.drawTexture
@@ -170,7 +201,7 @@ do  -- Modify character screen to show clothing size according to weight
             hasWeightIcon = false
             -- draw the size label after weight icon
             local sizeStr = '(' .. RealisticShoes.getAdditionalWeightStr(self.char) .. ')'
-            ISCharacterScreen_drawText(self, sizeStr, savedX + savedWidth + 17, savedY, 1, 1, 1, 1, savedFont or UIFont.Small, ...)
+            ISCharacterScreen_drawText(self, sizeStr, savedX + savedWidth + 18, savedY, 1, 1, 1, 1, savedFont or UIFont.Small, ...)
         end
         return ISCharacterScreen_drawTexture(self, ...)
     end
@@ -284,7 +315,7 @@ do -- Replace display name of inventory items to include shoes size
     local Clothing_getName = nil
 
     local function patchClothingGetName()
-        local mt = getmetatable(instanceItem("Base.SpiffoSuit")).__index
+        local mt = getmetatable(InventoryItemFactory.CreateItem("Base.SpiffoSuit")).__index
         Clothing_getName = mt.getName
         mt.getName = function(self)
             local name = Clothing_getName(self)
@@ -297,7 +328,7 @@ do -- Replace display name of inventory items to include shoes size
     end
 
     local function unpatchClothingGetName()
-        local mt = getmetatable(instanceItem("Base.SpiffoSuit")).__index
+        local mt = getmetatable(InventoryItemFactory.CreateItem("Base.SpiffoSuit")).__index
         mt.getName = Clothing_getName
         Clothing_getName = nil
     end
