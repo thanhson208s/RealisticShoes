@@ -40,7 +40,8 @@ function ISCheckShoesSize:perform()
 
     if not data.reveal then
         data.reveal = true
-        self.character:getXp():AddXP(Perks.Tailoring, 0.25)
+
+        self.character:getInventory():setDrawDirty(true)
     end
 
     self.character:Say(RealisticShoes.getDiffText(diff, shoesSize))

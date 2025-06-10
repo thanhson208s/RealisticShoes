@@ -3,14 +3,30 @@
 -- Stomping pain, injury
 -- Loose shoes reduce speed, increase trip chance
 -- Tight shoes cause pain, increase walking/running/sprinting
--- Recondition: glue, wood glue, twine, thread, cleaning liquid, needle, brush
--- Exclude flipflop and slipper
+-- Recondition: glue x 2, duct tape x 2, adhesive tape x 4, other same type, scissors, need tailoring level based on protection
+-- Add tailoring xp
 
 RealisticShoes = RealisticShoes or {}
 RealisticShoes.FrequentFactor = 1.0
+RealisticShoes.NeedTailoringLevel = true
+RealisticShoes.TailoringXpMultiplier = 1.0
+RealisticShoes.EnableShoesDegrading = true
+RealisticShoes.ChanceToDegradeOnFailure = 0.5
 RealisticShoes.Debug = true
 
 function RealisticShoes.onInitMod()
+    local distributionMode = SandboxVars.RealisticShoes.DistributionMode
+    RealisticShoes.FrequentFactor = 1.0
+    if distributionMode == 2 then
+        RealisticShoes.FrequentFactor = 2.0
+    elseif distributionMode == 3 then
+        RealisticShoes.FrequentFactor = 4.0
+    end
+
+    RealisticShoes.NeedTailoringLevel = SandboxVars.RealisticShoes.NeedTailoringLevel
+    RealisticShoes.TailoringXpMultiplier = SandboxVars.RealisticShoes.TailoringXpMultiplier or 1.0
+    RealisticShoes.EnableClothesDegrading = SandboxVars.RealisticShoes.EnableClothesDegrading
+    RealisticShoes.ChanceToDegradeOnFailure = SandboxVars.RealisticShoes.ChanceToDegradeOnFailure or 0.5
 end
 Events.OnInitGlobalModData.Add(RealisticShoes.onInitMod)
 
@@ -31,7 +47,7 @@ end
 Events.OnCreatePlayer.Add(RealisticShoes.onCreatePlayer)
 
 function RealisticShoes.onUpdatePlayer(player)
-
+    -- TODO
 end
 Events.OnPlayerUpdate.Add(RealisticShoes.onUpdatePlayer)
 
@@ -51,17 +67,13 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
     end
     if shoes and RealisticShoes.isShoes(shoes) then
         RealisticShoes.addReconditionOption(shoes, player, context)
-
-        -- RealisticShoes.debugLog('condition: ' .. tostring(clothingItem:getCondition()) .. '|' .. tostring(clothingItem:getConditionMax()))
-        -- RealisticShoes.debugLog('insulation: ' .. tostring(clothingItem:getInsulation()) .. '|' .. tostring(RealisticClothes.getOriginalInsulation(clothingItem)))
-        -- RealisticShoes.debugLog('combat speed modifier: ' .. tostring(clothingItem:getCombatSpeedModifier()) .. '|' .. tostring(RealisticClothes.getOriginalCombatSpeedModifier(clothingItem)))
     end
 
     RealisticShoes.addCheckSizeOption(items, player, context)
 end
 Events.OnFillInventoryObjectContextMenu.Add(RealisticShoes.onFillInvObjMenu)
 
-do
+do -- takes longer to wear tight shoes, can not wear too tight shoes
     local ISWearClothing_new = ISWearClothing.new
     function ISWearClothing:new(character, item, time, ...)
         if not RealisticShoes.isShoes(item) then
@@ -93,7 +105,7 @@ do
         local diff = data.size - playerSize
 
         if diff < -1 or (not data.reveal and not data.hint) then
-            data.hint = true    -- player can guess approximately the size of the clothing
+            data.hint = true
             self.character:Say(RealisticShoes.getDiffText(diff))
 
             if diff < -1 then
@@ -104,19 +116,6 @@ do
         end
 
         return ISWearClothing_perform(self)
-    end
-end
-
-do
-    local ISUnequipAction_perform = ISUnequipAction.perform
-    function ISUnequipAction:perform()
-        local result = ISUnequipAction_perform(self)
-
-        if RealisticShoes.isShoes(self.item) then
-            
-        end
-
-        return result
     end
 end
 

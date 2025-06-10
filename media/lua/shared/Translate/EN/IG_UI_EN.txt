@@ -8,6 +8,7 @@ IGUI_EN = {
 	IGUI_Hint_Shoes_Too_Loose = "Too loose",
 	IGUI_JobType_CheckShoesSize = "Check shoes size",
 	IGUI_JobType_ReconditionShoes = "Recondition",
+	IGUI_JobType_ReconditionShoes_UseMaterials = "Use %1 %2",
 
 	IGUI_Say_Shoes_Too_Tight0 = "My toes are begging for mercy!",
 	IGUI_Say_Shoes_Too_Tight1 = "These must be made for elves, not humans.",

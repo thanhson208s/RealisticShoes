@@ -14,21 +14,21 @@ RealisticShoes.SIZES = {
 }
 
 RealisticShoes.MEN_SIZES = {
-    {size=40, chance=8},
-    {size=41, chance=12},
+    {size=40, chance=14},
+    {size=41, chance=18},
     {size=42, chance=24},
-    {size=43, chance=26},
-    {size=44, chance=20},
+    {size=43, chance=20},
+    {size=44, chance=14},
     {size=45, chance=10}
 }
 
 RealisticShoes.WOMEN_SIZES = {
-    {size=36, chance=14},
-    {size=37, chance=20},
-    {size=38, chance=28},
-    {size=39, chance=22},
-    {size=40, chance=12},
-    {size=41, chance=4}
+    {size=36, chance=12},
+    {size=37, chance=16},
+    {size=38, chance=24},
+    {size=39, chance=26},
+    {size=40, chance=14},
+    {size=41, chance=8}
 }
 
 function RealisticShoes.getRandomMenSize()
@@ -166,7 +166,7 @@ function RealisticShoes.getDiffText(diff, size)
 end
 
 function RealisticShoes.isShoes(item)
-    return instanceof(item, "Clothing") and item:getBodyLocation() == "Shoes"
+    return item and instanceof(item, "Clothing") and item:getBodyLocation() == "Shoes"
 end
 
 function RealisticShoes.getAdditionalWeightStr(player)
@@ -205,7 +205,7 @@ end
 
 function RealisticShoes.checkShoesSize(player, items)
     local inv = player:getInventory()
-    for i, item in ipairs(items) do
+    for _, item in ipairs(items) do
         local container = item:getContainer()
         if container and container ~= inv then
             ISTimedActionQueue.add(ISInventoryTransferAction:new(player, item, container, inv))
@@ -214,52 +214,65 @@ function RealisticShoes.checkShoesSize(player, items)
     end
 end
 
-function RealisticShoes.predicateNeedle(item)
-    if item:isBroken() then return false end
-    return item:hasTag("Needle") or item:getType() == "Needle"
-end
-
-function RealisticShoes.predicateBrush(item)
-    if item:isBroken() then return false end
-    return item:hasTag("Paintbrush") or item:getType() == "Paintbrush"
-end
-
 function RealisticShoes.getColorForPercent(percent)
     local color = ColorInfo.new(0, 0, 0, 1)
     getCore():getBadHighlitedColor():interp(getCore():getGoodHighlitedColor(), percent, color)
-    return "<RGB:" .. color:getR() .. "," .. color:getG() .. "," .. color:getB() .. ">"
+    return " <RGB:" .. color:getR() .. "," .. color:getG() .. "," .. color:getB() .. "> "
 end
 
 function RealisticShoes.getPotentialRepairForRecondition(item, player)
+    return 0
 end
 
 function RealisticShoes.getSuccessChanceForRecondition(item, player)
+    return 0
+end
+
+function RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
+    local allMaterials = player:getInventory():getItemsFromType(materialType, true)
+    if allMaterials:size() >= quantity then
+        local materials = {}
+        for i = 0, quantity - 1 do
+            table.insert(materials, allMaterials:get(i))
+        end
+        return materials, allMaterials:size()
+    else
+        return nil, allMaterials:size()
+    end
 end
 
 function RealisticShoes.addReconditionOption(item, player, context)
     if item:getCondition() == item:getConditionMax() then return end
 
-    local repairedTimes = item:getHaveBeenRepaired() - 1
+    local repairedTimes = RealisticShoes.getRepairedTimes(item)
     local potentialRepair = RealisticShoes.getPotentialRepairForRecondition(item, player)
     local successChance = RealisticShoes.getSuccessChanceForRecondition(item, player)
 
-    local needle = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateNeedle)
-    local brush = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateBrush)
+    local option = context:addOption(getText("IGUI_JobType_ReconditionShoes"))
+    local subMenu = context:getNew(context)
+    context:addSubMenu(option, subMenu)
 
-    local option = context:addOption(getText("IGUI_JobType_ReconditionShoes"), player, RealisticShoes.reconditionShoes, item, needle, brush)
-    option.notAvailable = not (needle and brush)
-    option.toolTip = ISInventoryPaneContextMenu.addToolTip()
-    option.toolTip.description = " " .. RealisticShoes.getColorForPercent(potentialRepair) .. " " .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
-    option.toolTip.description = option.toolTip.description .. " <LINE> " .. RealisticShoes.getColorForPercent(successChance) .. " " .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
-    option.toolTip.description = option.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
-    option.toolTip.description = option.toolTip.description .. " <LINE>" .. (needle ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Needle")
-    option.toolTip.description = option.toolTip.description .. " <LINE>" .. (brush ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Paintbrush")
-    option.toolTip.description = option.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+    local repairOptions = {
+        ["Base.Glue"] = 2,
+        ["Base.DuctTape"] = 2,
+        ["Base.Scotchtape"] = 2
+    }
+
+    for materialType, quantity in pairs(repairOptions) do
+        local materials, count = RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
+        local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, getItemNameFromFullType(materialType)), player, RealisticShoes.reconditionShoes, materials)
+        subOption.notAvailable = not materials
+        subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
+        subOption.toolTip.description = RealisticClothes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType(materialType) .. " " .. count .. "/" .. quantity
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+    end
 end
 
-function RealisticShoes.reconditionShoes(player, item, needle, brush)
-    ISInventoryPaneContextMenu.transferIfNeeded(player, needle)
-    ISInventoryPaneContextMenu.transferIfNeeded(player, brush)
+function RealisticShoes.reconditionShoes(player, item, materials)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, materials)
 
     if player:isEquippedClothing(item) then
         ISTimedActionQueue.add(ISUnequipAction:new(player, item, 50))
@@ -267,5 +280,5 @@ function RealisticShoes.reconditionShoes(player, item, needle, brush)
         ISInventoryPaneContextMenu.transferIfNeeded(player, item)
     end
 
-    ISTimedActionQueue.add(ISReconditionShoes:new(player, item, needle, brush))
+    ISTimedActionQueue.add(ISReconditionShoes:new(player, item, materials))
 end
