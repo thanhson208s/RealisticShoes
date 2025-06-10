@@ -148,7 +148,14 @@ do -- Handle unequipping shoes when moving them to other containers
     end
 end
 
-do  -- Modify character screen to show clothing size according to weight
+if getActivatedMods():contains("RealisticClothes") then
+    local RealisticClothes_getAdditionalWeightStr = RealisticClothes.getAdditionalWeightStr
+    RealisticClothes.getAdditionalWeightStr = function(player)
+        local str = RealisticClothes_getAdditionalWeightStr(player)
+        str = str .. ', ' .. RealisticShoes.getAdditionalWeightStr(player)
+        return str
+    end
+else
     local ISCharacterScreen_drawTextRight = ISCharacterScreen.drawTextRight
     local ISCharacterScreen_drawText = ISCharacterScreen.drawText
     local ISCharacterScreen_drawTexture = ISCharacterScreen.drawTexture
@@ -194,7 +201,7 @@ do  -- Modify character screen to show clothing size according to weight
             hasWeightIcon = false
             -- draw the size label after weight icon
             local sizeStr = '(' .. RealisticShoes.getAdditionalWeightStr(self.char) .. ')'
-            ISCharacterScreen_drawText(self, sizeStr, savedX + savedWidth + 17, savedY, 1, 1, 1, 1, savedFont or UIFont.Small, ...)
+            ISCharacterScreen_drawText(self, sizeStr, savedX + savedWidth + 18, savedY, 1, 1, 1, 1, savedFont or UIFont.Small, ...)
         end
         return ISCharacterScreen_drawTexture(self, ...)
     end

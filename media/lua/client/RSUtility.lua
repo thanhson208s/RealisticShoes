@@ -263,8 +263,8 @@ function RealisticShoes.addReconditionOption(item, player, context)
         local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, getItemNameFromFullType(materialType)), player, RealisticShoes.reconditionShoes, materials)
         subOption.notAvailable = not materials
         subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
-        subOption.toolTip.description = RealisticClothes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
-        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+        subOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType(materialType) .. " " .. count .. "/" .. quantity
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
