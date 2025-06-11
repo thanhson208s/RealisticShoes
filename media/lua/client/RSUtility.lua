@@ -31,6 +31,9 @@ RealisticShoes.WOMEN_SIZES = {
     {size=41, chance=8}
 }
 
+RealisticShoes.DEFAULT_MEN_SIZE = 42
+RealisticShoes.DEFAULT_WOMEN_SIZE = 39
+
 function RealisticShoes.getRandomMenSize()
     local total = 0
     local rand = ZombRand(100)
@@ -39,7 +42,32 @@ function RealisticShoes.getRandomMenSize()
         if rand < total then return entry.size end
     end
 
-    return 43
+    return RealisticShoes.DEFAULT_MEN_SIZE
+end
+
+function RealisticShoes.getStartingMenSize()
+    local pool = {}
+    local totalChance = 0
+    for _, menSize in ipairs(RealisticShoes.MEN_SIZES) do
+        for _, allowedSize in ipairs(RealisticShoes.StartingMenSizes) do
+            if menSize.size == allowedSize then
+                table.insert(pool, menSize)
+                totalChance = totalChance + menSize.chance
+                break
+            end
+        end
+    end
+
+    if #pool == 0 then return RealisticShoes.DEFAULT_MEN_SIZE end
+
+    local rand = ZombRand(totalChance)
+    local total = 0
+    for _, menSize in ipairs(pool) do
+        total = total + menSize.chance
+        if rand < total then return menSize.size end
+    end
+
+    return RealisticShoes.DEFAULT_MEN_SIZE
 end
 
 function RealisticShoes.getRandomWomenSize()
@@ -50,7 +78,32 @@ function RealisticShoes.getRandomWomenSize()
         if rand < total then return entry.size end
     end
 
-    return 38
+    return DEFAULT_WOMEN_SIZE
+end
+
+function RealisticShoes.getStartingWomenSize()
+    local pool = {}
+    local totalChance = 0
+    for _, womenSize in ipairs(RealisticShoes.WOMEN_SIZES) do
+        for _, allowedSize in ipairs(RealisticShoes.StartingWomenSizes) do
+            if womenSize.size == allowedSize then
+                table.insert(pool, womenSize)
+                totalChance = totalChance + womenSize.chance
+                break
+            end
+        end
+    end
+
+    if #pool == 0 then return RealisticShoes.DEFAULT_WOMEN_SIZE end
+
+    local rand = ZombRand(totalChance)
+    local total = 0
+    for _, womenSize in ipairs(pool) do
+        total = total + womenSize.chance
+        if rand < total then return womenSize.size end
+    end
+
+    return RealisticShoes.DEFAULT_WOMEN_SIZE
 end
 
 function RealisticShoes.getRandomSize(onChar, isFemale)
@@ -68,8 +121,8 @@ function RealisticShoes.getRandomSize(onChar, isFemale)
             if rand < total then return entry.size end
         end
     end
-    
-    return 40.5
+
+    return (RealisticShoes.DEFAULT_MEN_SIZE + RealisticShoes.DEFAULT_WOMEN_SIZE) / 2
 end
 
 function RealisticShoes.getPlayerSize(player)
@@ -77,9 +130,21 @@ function RealisticShoes.getPlayerSize(player)
 end
 
 function RealisticShoes.getPlayerOriginalSize(player)
-    if not player:getModData().RealisticShoes then
+    local alreadyHasSize = false
+    if player:getModData().RealisticShoes then
+        local size = player:getModData().RealisticShoes.size
+        local allowedSizes = player:isFemale() and RealisticShoes.StartingWomenSizes or RealisticShoes.StartingMenSizes
+        for _, allowedSize in ipairs(allowedSizes) do
+            if allowedSize == size then
+                alreadyHasSize = true
+                break
+            end
+        end
+    end
+
+    if not alreadyHasSize then
         player:getModData().RealisticShoes = {
-            size = RealisticShoes.getRandomSize(true, player:isFemale())
+            size = player:isFemale() and RealisticShoes.getStartingWomenSize() or RealisticShoes.getStartingMenSize()
         }
     end
 
@@ -169,6 +234,11 @@ function RealisticShoes.isShoes(item)
     return item and instanceof(item, "Clothing") and item:getBodyLocation() == "Shoes"
 end
 
+function RealisticShoes.getShoesDifficutly(item)
+    local defense = (item:getScratchDefense() or 0.0) + 2 * (item:getBiteDefense() or 0.0)
+    return math.floor(math.sqrt(defense / 20.0))
+end
+
 function RealisticShoes.getAdditionalWeightStr(player)
     local extraSize = RealisticShoes.getPlayerExtraSize(player)
 
@@ -228,6 +298,20 @@ function RealisticShoes.getSuccessChanceForRecondition(item, player)
     return 0
 end
 
+function RealisticShoes.getPotentialRepairUsingSpare(item, player, spareItem)
+    return 0
+end
+
+function RealisticShoes.getSuccessChanceUsingSpare(item, player,spareItem)
+    return 0
+end
+
+function RealisticShoes.getRequiredLevelToRecondition(item, usingSpare)
+    if not RealisticShoes.NeedTailoringLevel then return 0 end
+
+    return RealisticShoes.getShoesDifficutly(item) + (usingSpare and 1 or 0)
+end
+
 function RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
     local allMaterials = player:getInventory():getItemsFromType(materialType, true)
     if allMaterials:size() >= quantity then
@@ -241,12 +325,19 @@ function RealisticShoes.getRequiredMaterialsForRecondition(player, materialType,
     end
 end
 
+function RealisticShoes.predicateScissors(item)
+    if item:isBroken() then return false end
+    return item:hasTag("Scissors") or item:getType() == "Scissors"
+end
+
 function RealisticShoes.addReconditionOption(item, player, context)
     if item:getCondition() == item:getConditionMax() then return end
 
+    local requiredLevel = RealisticShoes.getRequiredLevelToRecondition(item, false)
     local repairedTimes = RealisticShoes.getRepairedTimes(item)
-    local potentialRepair = RealisticShoes.getPotentialRepairForRecondition(item, player)
-    local successChance = RealisticShoes.getSuccessChanceForRecondition(item, player)
+    local potentialRepair = math.max(0, math.min(1, RealisticShoes.getPotentialRepairForRecondition(item, player)))
+    local successChance = math.max(0, math.min(1, RealisticShoes.getSuccessChanceForRecondition(item, player)))
+    local tailoring = player:getPerkLevel(Perks.Tailoring)
 
     local option = context:addOption(getText("IGUI_JobType_ReconditionShoes"))
     local subMenu = context:getNew(context)
@@ -261,12 +352,59 @@ function RealisticShoes.addReconditionOption(item, player, context)
     for materialType, quantity in pairs(repairOptions) do
         local materials, count = RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
         local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, getItemNameFromFullType(materialType)), player, RealisticShoes.reconditionShoes, materials)
-        subOption.notAvailable = not materials
+        subOption.notAvailable = not (materials and tailoring >= requiredLevel)
         subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
         subOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType(materialType) .. " " .. count .. "/" .. quantity
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+    end
+
+    local scissors = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateScissors)
+    local spareItems = player:getInventory():getItemsFromType(item:getFullType(), true)
+    local hasSpareItems = false
+    for i = 0, spareItems:size() - 1 do
+        local spareItem = spareItems:get(i)
+        if spareItem ~= item then
+            hasSpareItems = true
+
+            requiredLevel = RealisticShoes.getRequiredLevelToRecondition(item, true)
+            potentialRepair = RealisticShoes.getPotentialRepairUsingSpare(item, player, spareItem)
+            successChance = RealisticShoes.getSuccessChanceUsingSpare(item, player, spareItem)
+
+            local name = getItemNameFromFullType(spare:getFullType())
+            if RealisticShoes.hasModData(spareItem) then
+                local data = RealisticShoes.getOrCreateModData(spareItem)
+                if data and data.reveal then name = name .. ' (' .. RealisticShoes.getSizeText(data.size) .. ')' end
+            end
+
+            local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name), player, RealisticShoes.reconditionShoesUsingSpare, item, spareItem, scissors)
+            subOption.notAvailable = not (scissors and tailoring >= requiredLevel)
+            subOption.toolTip.description = RealisticClothes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.ghs .. name
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+        end
+    end
+
+    if not hasSpareItems then
+        local name = getItemNameFromFullType(item:getFullType())
+        requiredLevel = RealisticClothes.getRequiredLevelToRecondition(item, true)
+
+        local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name))
+        subOption.notAvailable = true
+        subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
+        subOption.toolTip.description = RealisticClothes.getColorForPercent(0.5) .. getText("Tooltip_potentialRepair") .. " ???"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(0.5) .. getText("Tooltip_chanceSuccess") .. " ???"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.bhs .. name
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
     end
 end
@@ -281,4 +419,17 @@ function RealisticShoes.reconditionShoes(player, item, materials)
     end
 
     ISTimedActionQueue.add(ISReconditionShoes:new(player, item, materials))
+end
+
+function RealisticShoes.reconditionShoesUsingSpare(player, item, spareItem, scissors)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, spareItem)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, scissors)
+
+    if player:isEquippedClothing(item) then
+        ISTimedActionQueue.add(ISUnequipAction:new(player, item, 50))
+    else
+        ISInventoryPaneContextMenu.transferIfNeeded(player, item)
+    end
+
+    ISTimedActionQueue.add(ISReconditionShoesUsingSpare:new(player, item, spareItem, scissors))
 end

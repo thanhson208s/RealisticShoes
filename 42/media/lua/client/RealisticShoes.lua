@@ -1,13 +1,14 @@
 -- TODO:
 -- Shoes take damage from walking on glass, corpses (take in factors such as resistances, protections, tailoring and maintenance, blood, dirtiness, wetness)
--- Stomping pain, injury
+-- Stomping pain, injury, damage
 -- Loose shoes reduce speed, increase trip chance
 -- Tight shoes cause pain, increase walking/running/sprinting
 -- Recondition: glue x 2, duct tape x 2, adhesive tape x 4, other same type, scissors, need tailoring level based on protection
 -- Add tailoring xp
 
 RealisticShoes = RealisticShoes or {}
-RealisticShoes.FrequentFactor = 1.0
+RealisticShoes.StartingMenSizes = {}
+RealisticShoes.StartingWomenSizes = {}
 RealisticShoes.NeedTailoringLevel = true
 RealisticShoes.TailoringXpMultiplier = 1.0
 RealisticShoes.EnableShoesDegrading = true
@@ -15,17 +16,27 @@ RealisticShoes.ChanceToDegradeOnFailure = 0.5
 RealisticShoes.Debug = true
 
 function RealisticShoes.onInitMod()
-    local distributionMode = SandboxVars.RealisticShoes.DistributionMode
-    RealisticShoes.FrequentFactor = 1.0
-    if distributionMode == 2 then
-        RealisticShoes.FrequentFactor = 2.0
-    elseif distributionMode == 3 then
-        RealisticShoes.FrequentFactor = 4.0
+    local startingMenSize = SandboxVars.RealisticShoes.StartingMenSize or 1
+    if startingMenSize == 1 then
+        RealisticShoes.StartingMenSizes = {42, 43}
+    elseif startingMenSize == 2 then
+        RealisticShoes.StartingMenSizes = {41, 42, 43, 44}
+    elseif startingMenSize == 3 then
+        RealisticShoes.StartingMenSizes = {40, 41, 42, 43, 44, 45}
+    end
+
+    local startingWomenSize = SandboxVars.RealisticShoes.StartingWomenSize or 1
+    if startingWomenSize == 1 then
+        RealisticShoes.StartingWomenSizes = {38, 39}
+    elseif startingWomenSize == 2 then
+        RealisticShoes.StartingWomenSizes = {37, 38, 39, 40}
+    elseif startingWomenSize == 3 then
+        RealisticShoes.StartingWomenSizes = {36, 37, 38, 39, 40, 41}
     end
 
     RealisticShoes.NeedTailoringLevel = SandboxVars.RealisticShoes.NeedTailoringLevel
     RealisticShoes.TailoringXpMultiplier = SandboxVars.RealisticShoes.TailoringXpMultiplier or 1.0
-    RealisticShoes.EnableClothesDegrading = SandboxVars.RealisticShoes.EnableClothesDegrading
+    RealisticShoes.EnableShoesDegrading = SandboxVars.RealisticShoes.EnableShoesDegrading
     RealisticShoes.ChanceToDegradeOnFailure = SandboxVars.RealisticShoes.ChanceToDegradeOnFailure or 0.5
 end
 Events.OnInitGlobalModData.Add(RealisticShoes.onInitMod)
@@ -38,8 +49,8 @@ function RealisticShoes.onCreatePlayer(playerId)
     local shoes = player:getWornItem("Shoes")
     if shoes then
         local size = RealisticShoes.getPlayerSize(player)
-        local data = RealisticShoes.getOrCreateModData(shoes, size)
-        if not data.reveal then
+        if not RealisticShoes.hasModData(shoes) then
+            local data = RealisticShoes.getOrCreateModData(shoes, size)
             data.reveal = true
         end
     end
@@ -148,11 +159,11 @@ do -- Handle unequipping shoes when moving them to other containers
     end
 end
 
-if getActivatedMods():contains("RealisticClothes") then
+if getActivatedMods():contains("\\RealisticClothes") then
     local RealisticClothes_getAdditionalWeightStr = RealisticClothes.getAdditionalWeightStr
     RealisticClothes.getAdditionalWeightStr = function(player)
         local str = RealisticClothes_getAdditionalWeightStr(player)
-        str = str .. ', ' .. RealisticShoes.getAdditionalWeightStr(player)
+        str = str .. ' | ' .. RealisticShoes.getAdditionalWeightStr(player)
         return str
     end
 else
@@ -181,7 +192,7 @@ else
         if hasWeightText then
             hasWeightText = false
             local width = getTextManager():MeasureStringX(UIFont.Small, str)
-            
+
             if hasWeightIcon then
                 savedWidth = width
                 savedX = x
@@ -315,7 +326,7 @@ do -- Replace display name of inventory items to include shoes size
     local Clothing_getName = nil
 
     local function patchClothingGetName()
-        local mt = getmetatable(InventoryItemFactory.CreateItem("Base.SpiffoSuit")).__index
+        local mt = getmetatable(RealisticShoes.createItem("Base.SpiffoSuit")).__index
         Clothing_getName = mt.getName
         mt.getName = function(self)
             local name = Clothing_getName(self)
@@ -328,7 +339,7 @@ do -- Replace display name of inventory items to include shoes size
     end
 
     local function unpatchClothingGetName()
-        local mt = getmetatable(InventoryItemFactory.CreateItem("Base.SpiffoSuit")).__index
+        local mt = getmetatable(RealisticShoes.createItem("Base.SpiffoSuit")).__index
         mt.getName = Clothing_getName
         Clothing_getName = nil
     end

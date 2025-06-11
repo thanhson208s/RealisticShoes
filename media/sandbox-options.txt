@@ -1,9 +1,47 @@
 VERSION = 1,
 
-option RealisticShoes.DistributionMode
+option RealisticShoes.StartingWomenSize
 {
     type = enum, numValues = 3, default = 1,
     page = RealisticShoes,
-    translation = RealisticShoes_DistributionMode,
-    valueTranslation = RealisticShoes_DistributionMode,
+    translation = RealisticShoes_StartingWomenSize,
+    valueTranslation = RealisticShoes_StartingWomenSize,
+}
+
+option RealisticShoes.StartingWomenSize
+{
+    type = enum, numValues = 3, default = 1,
+    page = RealisticShoes,
+    translation = RealisticShoes_StartingMenSize,
+    valueTranslation = RealisticShoes_StartingMenSize,
+}
+
+option RealisticShoes.OverrideExistingSizes
+{
+    type = boolean, default = true,
+    page = RealisticShoes, translation = RealisticShoes_OverrideExistingSizes,
+}
+
+option RealisticShoes.NeedTailoringLevel
+{
+    type = boolean, default = true,
+    page = RealisticShoes, translation = RealisticShoes_NeedTailoringLevel,
+}
+
+option RealisticShoes.TailoringXpMultiplier
+{
+    type = double, min = 0.0, max = 100.0, default = 1.0,
+    page = RealisticShoes, translation = RealisticShoes_TailoringXpMultiplier,
+}
+
+option RealisticShoes.EnableShoesDegrading
+{
+    type = boolean, default = true,
+    page = RealisticShoes, translation = RealisticShoes_EnableShoesDegrading,
+}
+
+option RealisticShoes.ChanceToDegradeOnFailure
+{
+    type = double, min = 0.0, max = 1.0, default = 0.5,
+    page = RealisticShoes, translation = RealisticShoes_ChanceToDegradeOnFailure,
 }
