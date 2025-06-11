@@ -382,8 +382,8 @@ function RealisticShoes.addReconditionOption(item, player, context)
 
             local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name), player, RealisticShoes.reconditionShoesUsingSpare, item, spareItem, scissors)
             subOption.notAvailable = not (scissors and tailoring >= requiredLevel)
-            subOption.toolTip.description = RealisticClothes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+            subOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
             subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
             subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
             subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.ghs .. name
@@ -394,13 +394,13 @@ function RealisticShoes.addReconditionOption(item, player, context)
 
     if not hasSpareItems then
         local name = getItemNameFromFullType(item:getFullType())
-        requiredLevel = RealisticClothes.getRequiredLevelToRecondition(item, true)
+        requiredLevel = RealisticShoes.getRequiredLevelToRecondition(item, true)
 
         local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name))
         subOption.notAvailable = true
         subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
-        subOption.toolTip.description = RealisticClothes.getColorForPercent(0.5) .. getText("Tooltip_potentialRepair") .. " ???"
-        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticClothes.getColorForPercent(0.5) .. getText("Tooltip_chanceSuccess") .. " ???"
+        subOption.toolTip.description = RealisticShoes.getColorForPercent(0.5) .. getText("Tooltip_potentialRepair") .. " ???"
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(0.5) .. getText("Tooltip_chanceSuccess") .. " ???"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.bhs .. name
