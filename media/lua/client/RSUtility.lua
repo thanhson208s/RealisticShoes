@@ -364,17 +364,21 @@ function RealisticShoes.addReconditionOption(item, player, context)
         ["Base.Scotchtape"] = 2
     }
 
+    local repairMaterials = {}
     for materialType, quantity in pairs(repairOptions) do
         local materials, count = RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
-        local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, getItemNameFromFullType(materialType)), player, RealisticShoes.reconditionShoes, materials)
+        local materialName = getItemNameFromFullType(materialType)
+        local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, materialName), player, RealisticShoes.reconditionShoes, materials)
         subOption.notAvailable = not (materials and tailoring >= requiredLevel)
         subOption.toolTip = ISInventoryPaneContextMenu.addToolTip()
         subOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
-        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType(materialType) .. " " .. count .. "/" .. quantity
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. materialName .. " " .. count .. "/" .. quantity
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+
+        repairMaterials[materialType] = {name = materialName, materials = materials, count = count}
     end
 
     local scissors = player:getInventory():getFirstEvalRecurse(RealisticShoes.predicateScissors)
@@ -395,15 +399,24 @@ function RealisticShoes.addReconditionOption(item, player, context)
                 if data and data.reveal then name = name .. ' (' .. RealisticShoes.getSizeText(data.size) .. ')' end
             end
 
-            local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name), player, RealisticShoes.reconditionShoesUsingSpare, item, spareItem, scissors)
-            subOption.notAvailable = not (scissors and tailoring >= requiredLevel)
-            subOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.ghs .. name
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
-            subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+            local subOption = subMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseSpare", name))
+            local spareMenu = subMenu:getNew(subMenu)
+            subMenu:addSubMenu(subOption, spareMenu)
+
+            for materialType, materialData in pairs(repairMaterials) do
+                local quantity = repairOptions[materialType]
+                local materials = materialData.materials
+                local spareOption = spareMenu:addOption(getText("IGUI_JobType_ReconditionShoes_UseMaterials", quantity, materialData.name), player, Realistic.reconditionShoesUsingSpare, item, scissors, spareItem, materials)
+                spareOption.notAvailable = not (scissors and materials and tailoring >= requiredLevel)
+                spareOption.toolTip.description = RealisticShoes.getColorForPercent(potentialRepair) .. getText("Tooltip_potentialRepair") .. " " .. math.ceil(potentialRepair * 100) .. "%"
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE>" .. RealisticShoes.getColorForPercent(successChance) .. getText("Tooltip_chanceSuccess") .. " " .. math.ceil(successChance * 100) .. "%"
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.ghs .. name
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE>" .. (materialData.count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. materialName .. " " .. material.count .. "/" .. quantity
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
+                spareOption.toolTip.description = spareOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
+            end
         end
     end
 
@@ -419,6 +432,11 @@ function RealisticShoes.addReconditionOption(item, player, context)
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,1> " .. getText("Tooltip_craft_Needs") .. ":"
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (scissors ~= nil and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. getItemNameFromFullType("Base.Scissors")
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. ISInventoryPaneContextMenu.bhs .. name
+        subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. getText("IGUI_CraftUI_OneOf")
+        for materialType, materialData in pairs(repairMaterials) do
+            local quantity = repairOptions[materialType]
+            subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <INDENT:20> " .. (materialData.count >= quantity and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. materialData.name .. " " .. materialData.count .. "/" .. quantity .. " <INDENT:0> "
+        end
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE>" .. (tailoring >= requiredLevel and ISInventoryPaneContextMenu.ghs or ISInventoryPaneContextMenu.bhs) .. PerkFactory.getPerk(Perks.Tailoring):getName() .. " " .. tailoring .. "/" .. requiredLevel
         subOption.toolTip.description = subOption.toolTip.description .. " <LINE> <LINE> <RGB:1,1,0.8> " .. getText("Tooltip_weapon_Repaired") .. ": " .. (repairedTimes == 0 and getText("Tooltip_never") or (repairedTimes .. "x"))
     end
@@ -436,9 +454,10 @@ function RealisticShoes.reconditionShoes(player, item, materials)
     ISTimedActionQueue.add(ISReconditionShoes:new(player, item, materials))
 end
 
-function RealisticShoes.reconditionShoesUsingSpare(player, item, spareItem, scissors)
-    ISInventoryPaneContextMenu.transferIfNeeded(player, spareItem)
+function RealisticShoes.reconditionShoesUsingSpare(player, item, scissors, spareItem, materials)
     ISInventoryPaneContextMenu.transferIfNeeded(player, scissors)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, spareItem)
+    ISInventoryPaneContextMenu.transferIfNeeded(player, materials)
 
     if player:isEquippedClothing(item) then
         ISTimedActionQueue.add(ISUnequipAction:new(player, item, 50))
@@ -446,5 +465,5 @@ function RealisticShoes.reconditionShoesUsingSpare(player, item, spareItem, scis
         ISInventoryPaneContextMenu.transferIfNeeded(player, item)
     end
 
-    ISTimedActionQueue.add(ISReconditionShoesUsingSpare:new(player, item, spareItem, scissors))
+    ISTimedActionQueue.add(ISReconditionShoesUsingSpare:new(player, item, scissors, spareItem, materials))
 end

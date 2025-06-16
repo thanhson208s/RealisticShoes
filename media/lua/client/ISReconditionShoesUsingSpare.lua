@@ -2,14 +2,15 @@ require "TimedActions/ISBaseTimedAction"
 
 ISReconditionShoesUsingSpare = ISBaseTimedAction:derive("ISReconditionShoesUsingSpare")
 
-function ISReconditionShoesUsingSpare:new(character, item, spareItem, scissors)
+function ISReconditionShoesUsingSpare:new(character, item, scissors, spareItem , materials)
     local o = {}
     setmetatable(o, self)
     self.__index = self
     o.character = character
     o.item = item
-    o.spareItem = spareItem
     o.scissors = scissors
+    o.spareItem = spareItem
+    o.materials = materials
 
     o.stopOnWalk = false
     o.stopOnRun = true
@@ -31,6 +32,7 @@ function ISReconditionShoesUsingSpare:perform()
     ISBaseTimedAction.perform(self);
     self.item:setJobDelta(0.0);
 
+    local materialUses = #self.materials
     local successChance = RealisticShoes.getSuccessChanceUsingSpare(self.item, self.character, self.spareItem)
     if ZombRandFloat(0, 1) < successChance then
         local potentialRepair = RealisticShoes.getPotentialRepairUsingSpare(self.item, self.character, self.spareItem)
@@ -44,6 +46,15 @@ function ISReconditionShoesUsingSpare:perform()
         if ZombRandFloat(0, 1) < RealisticShoes.ChanceToDegradeOnFailure then
             self.item:setCondition(self.item:getCondition() - 1)
         end
+
+        materialUses = math.ceil(materialUses / 2)
+    end
+
+    for _, material in ipairs(self.materials) do
+        if materialUses > 0 then
+            self.character:getInventory():Remove(material)
+            materialUses = materialUses - 1
+        end
     end
 end
 
@@ -53,6 +64,10 @@ end
 
 function ISReconditionShoesUsingSpare:isValid()
     local inv = self.character:getInventory()
+
+    for _, material in ipairs(self.materials) do
+        if not inv:contains(material) then return false end
+    end
 
     return inv:contains(self.item) and inv:contains(self.spareItem) and inv:contains(self.scissors)
 end
