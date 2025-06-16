@@ -45,3 +45,9 @@ option RealisticShoes.ChanceToDegradeOnFailure
     type = double, min = 0.0, max = 1.0, default = 0.5,
     page = RealisticShoes, translation = RealisticShoes_ChanceToDegradeOnFailure,
 }
+
+option RealisticShoes.IncreasePainMultiplier
+{
+    type = double, min = 0.0, max = 100.0, default = 1.0,
+    page = RealisticShoes, translation = RealisticShoes_IncreasePainMultiplier
+}

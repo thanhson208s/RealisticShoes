@@ -17,4 +17,5 @@ Sandbox_EN = {
     Sandbox_RealisticShoes_TailoringXpMultiplier = "Tailoring xp multiplier",
     Sandbox_RealisticShoes_EnableShoesDegrading = "Enable shoes degrading",
     Sandbox_RealisticShoes_ChanceToDegradeOnFailure = "Chance to degrade on failure",
+    Sandbox_RealisticShoes_IncreasePainMultiplier = "Increase pain multiplier",
 }

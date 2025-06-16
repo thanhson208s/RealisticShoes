@@ -31,9 +31,9 @@ function ISReconditionShoesUsingSpare:perform()
     ISBaseTimedAction.perform(self);
     self.item:setJobDelta(0.0);
 
-    local successChance = RealisticShoes.getSuccessChanceForRecondition(self.item, self.character)
+    local successChance = RealisticShoes.getSuccessChanceUsingSpare(self.item, self.character, self.spareItem)
     if ZombRandFloat(0, 1) < successChance then
-        local potentialRepair = RealisticShoes.getPotentialRepairForRecondition(self.item, self.character)
+        local potentialRepair = RealisticShoes.getPotentialRepairUsingSpare(self.item, self.character, self.spareItem)
         local conditionGain = math.ceil(potentialRepair * (self.item:getConditionMax() - self.item:getCondition()))
 
         self.item:setCondition(self.item:getCondition() + conditionGain)

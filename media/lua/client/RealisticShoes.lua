@@ -1,9 +1,6 @@
 -- TODO:
--- Shoes take damage from walking on glass, corpses (take in factors such as resistances, protections, tailoring and maintenance, blood, dirtiness, wetness)
 -- Stomping pain, injury, damage
 -- Loose shoes reduce speed, increase trip chance
--- Tight shoes cause pain, increase walking/running/sprinting
--- Recondition: glue x 2, duct tape x 2, adhesive tape x 4, other same type, scissors, need tailoring level based on protection
 -- Add tailoring xp
 
 RealisticShoes = RealisticShoes or {}
@@ -13,6 +10,7 @@ RealisticShoes.NeedTailoringLevel = true
 RealisticShoes.TailoringXpMultiplier = 1.0
 RealisticShoes.EnableShoesDegrading = true
 RealisticShoes.ChanceToDegradeOnFailure = 0.5
+RealisticShoes.IncreasePainMultiplier = 1.0
 RealisticShoes.Debug = true
 
 function RealisticShoes.onInitMod()
@@ -38,6 +36,7 @@ function RealisticShoes.onInitMod()
     RealisticShoes.TailoringXpMultiplier = SandboxVars.RealisticShoes.TailoringXpMultiplier or 1.0
     RealisticShoes.EnableShoesDegrading = SandboxVars.RealisticShoes.EnableShoesDegrading
     RealisticShoes.ChanceToDegradeOnFailure = SandboxVars.RealisticShoes.ChanceToDegradeOnFailure or 0.5
+    RealisticShoes.IncreasePainMultiplier = SandboxVars.RealisticShoes.IncreasePainMultiplier or 1.0
 end
 Events.OnInitGlobalModData.Add(RealisticShoes.onInitMod)
 
@@ -58,7 +57,40 @@ end
 Events.OnCreatePlayer.Add(RealisticShoes.onCreatePlayer)
 
 function RealisticShoes.onUpdatePlayer(player)
-    -- TODO
+    if not player or not player:isLocalPlayer() then return end
+
+    local shoes = player:getWornItem("Shoes")
+    if shoes then
+        local playerSize = RealisticShoes.getPlayerSize(player)
+        local data = RealisticShoes.getOrCreateModData(shoes)
+        local diff = data.size - playerSize
+
+        -- tight shoes cause additional pain
+        if diff < 0 and player:isPlayerMoving() then
+            local mul = 1.0
+            if player:isRunning() then
+                mul = 2.0
+            elseif player:isSprinting() then
+                mul = 3.0
+            end
+
+            local footR = player:getBodyDamage():getBodyPart(BodyPartType.Foot_R)
+            local footL = player:getBodyDamage():getBodyPart(BodyTypeType.Foot_L)
+            footR:setAdditionalPain(footR:getAdditionalPain() + mul * (math.abs(diff) + 0.5) * RealisticShoes.IncreasePainMultiplier)
+            footL:setAdditionalPain(footL:getAdditionalPain() + mul * (math.abs(diff) + 0.5) * RealisticShoes.IncreasePainMultiplier)
+        end
+
+        -- TODO: shoes taking damage from walking on broken glass
+        local square = player:getCurrentSquare()
+        if square and square:getBrokenGlass() then
+
+        end
+
+        -- TODO: shoes taking damage from walking on corpses
+        if square and square:getDeadBody() then
+
+        end
+    end
 end
 Events.OnPlayerUpdate.Add(RealisticShoes.onUpdatePlayer)
 
@@ -93,7 +125,7 @@ do -- takes longer to wear tight shoes, can not wear too tight shoes
 
         local data = RealisticShoes.getOrCreateModData(item)
         local playerSize = RealisticShoes.getPlayerSize(character)
-        local diff = data.diff - playerSize
+        local diff = data.size - playerSize
 
         local timeMultiplier = 1.0
         if diff < 0 then
