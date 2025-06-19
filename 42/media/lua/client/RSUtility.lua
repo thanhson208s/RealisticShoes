@@ -467,3 +467,12 @@ function RealisticShoes.reconditionShoesUsingSpare(player, item, scissors, spare
 
     ISTimedActionQueue.add(ISReconditionShoesUsingSpare:new(player, item, scissors, spareItem, materials))
 end
+
+function RealisticShoes.updateShoesByDiff(shoes, player)
+    if player:isEquippedClothing(shoes) then
+        local playerSize = RealisticShoes.getPlayerSize(player)
+        local data = RealisticShoes.getOrCreateModData(shoes)
+        local diff = data.size - playerSize
+    else
+    end
+end
