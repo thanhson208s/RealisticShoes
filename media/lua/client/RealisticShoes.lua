@@ -1,5 +1,5 @@
 -- TODO:
--- Stomping pain, damage, stamina, crit
+-- Stomping damage, stamina, crit
 -- Increase trip chance
 -- Add tailoring xp
 
@@ -132,7 +132,23 @@ function RealisticShoes.onStompZombie(player, weapon, zombie, damage)
 
     print('RealisticShoes ' .. tostring(damage))
 
-    -- TODO: add pain to Foot_R, tight shoes cause more pain, shoes with higher stomp power will absorb more impact
+    local shoes = player:getWornItem("Shoes")
+    if shoes then
+        local playerSize = RealisticShoes.getPlayerSize(player)
+        local data = RealisticShoes.getOrCreateModData(shoes)
+        local diff = data.size - playerSize
+
+        if diff < 0 then
+            local mul = math.abs(diff) + 0.5
+            -- stomping on head causes more pain
+            if zombie:getHitHeadWhileOnFloor() > 0 then mul = mul * 2.0 end
+            -- shoes with higher stomp power will absorb more impact
+            mul = mul * math.sqrt(1 / shoes:getStompPower())
+
+            local bodyPart = player:getBodyDamage():getBodyPart(BodyPartType.Foot_R)
+            bodyPart:setAdditionalPain(bodyPart:getAdditionalPain() + 0.5 * mul * RealisticShoes.IncreasePainMultiplier)
+        end
+    end
 end
 Events.OnWeaponHitXp.Add(RealisticShoes.onStompZombie)
 
@@ -157,6 +173,17 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
     RealisticShoes.addCheckSizeOption(items, player, context)
 end
 Events.OnFillInventoryObjectContextMenu.Add(RealisticShoes.onFillInvObjMenu)
+
+function RealisticShoes.updateShoes()
+    local player = getPlayer()
+    if not player or not player:isLocalPlayer() then return end
+
+    local shoes = player:getWornItem("Shoes")
+    if shoes then
+        RealisticShoes.updateShoesByDiff(shoes, player)
+    end
+end
+Events.EveryOneMinute.Add(RealisticShoes.updateShoes)
 
 do -- takes longer to wear tight shoes, can not wear too tight shoes
     local ISWearClothing_new = ISWearClothing.new
@@ -200,7 +227,22 @@ do -- takes longer to wear tight shoes, can not wear too tight shoes
             end
         end
 
-        return ISWearClothing_perform(self)
+        local result = ISWearClothing_perform(self)
+        RealisticShoes.updateShoesByDiff(self.item, self.character)
+        return result
+    end
+end
+
+do -- Reset shoes stats when unequipping
+    local ISUnequipAction_perform = ISUnequipAction.perform
+    function ISUnequipAction:perform()
+        local result = ISUnequipAction_perform(self)
+
+        if RealisticShoes.isShoes(self.item) then
+            RealisticShoes.updateShoesByDiff(self.item, self.character)
+        end
+
+        return result
     end
 end
 
@@ -209,6 +251,10 @@ do -- Handle unequipping shoes when moving them to other containers
     function ISInventoryTransferAction:perform()
         if not RealisticShoes.isShoes(self.item) then
             return ISInventoryTransferAction_perform(self)
+        end
+
+        if self.srcContainer and self.srcContainer == self.character:getInventory() then
+            RealisticShoes.updateShoesByDiff(self.item, self.character)
         end
 
         -- set all shoes on zombie to the same size of the first clothing initialized
