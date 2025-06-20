@@ -36,6 +36,8 @@ function ISReconditionShoes:perform()
         local potentialRepair = RealisticShoes.getPotentialRepairForRecondition(self.item, self.character)
         local conditionGain = math.ceil(potentialRepair * (self.item:getConditionMax() - self.item:getCondition()))
         local repairedTimes = RealisticShoes.getRepairedTimes(self.item)
+        self.character:getXp():AddXP(Perks.Tailoring, 0.25 * 2 ^ (3 - repairedTimes))
+        self.character:getXp():AddXP(Perks.Maintenance, conditionGain * 0.2 / (repairedTimes < 10 and (repairedTimes + 1) or 0))
 
         self.item:setCondition(self.item:getCondition() + conditionGain)
         self.item:setHaveBeenRepaird(self.item:getHaveBeenRepaired() + 1)
@@ -43,6 +45,9 @@ function ISReconditionShoes:perform()
         if ZombRandFloat(0, 1) < RealisticShoes.ChanceToDegradeOnFailure then
             self.item:setCondition(self.item:getCondition() - 1)
         end
+
+        self.character:getEmitter():playSound("ReconditionShoesFailed")
+        self.character:getXp():AddXP(Perks.Tailoring, 0.25 * math.max(0, 10 - repairedTimes) / 10)
 
         materialUses = math.ceil(materialUses / 2)
     end

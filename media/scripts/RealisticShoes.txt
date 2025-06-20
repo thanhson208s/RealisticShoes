@@ -1,0 +1,12 @@
+module Base {
+    sound ReconditionShoesFailed
+    {
+        category = Item,
+        loop = true,
+        clip
+        {
+            file = media/sound/recondition_shoes_failed.wav,
+            volume = 0.25
+        }
+    }
+}

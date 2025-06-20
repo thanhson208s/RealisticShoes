@@ -37,6 +37,9 @@ function ISReconditionShoesUsingSpare:perform()
     if ZombRandFloat(0, 1) < successChance then
         local potentialRepair = RealisticShoes.getPotentialRepairUsingSpare(self.item, self.character, self.spareItem)
         local conditionGain = math.ceil(potentialRepair * (self.item:getConditionMax() - self.item:getCondition()))
+        local repairedTimes = RealisticShoes.getRepairedTimes(self.item)
+        self.character:getXp():AddXP(Perks.Tailoring, 0.25 * 2 ^ (3 - repairedTimes))
+        self.character:getXp():AddXP(Perks.Maintenance, conditionGain * 0.2 / (repairedTimes < 10 and (repairedTimes + 1) or 0))
 
         self.item:setCondition(self.item:getCondition() + conditionGain)
         self.item:setHaveBeenRepaird(self.item:getHaveBeenRepaired() + 1)
@@ -47,7 +50,23 @@ function ISReconditionShoesUsingSpare:perform()
             self.item:setCondition(self.item:getCondition() - 1)
         end
 
+        self.character:getEmitter():playSound("ReconditionShoesFailed")
+        self.character:getXp():AddXP(Perks.Tailoring, 0.25 * math.max(0, 10 - repairedTimes) / 10)
+
         materialUses = math.ceil(materialUses / 2)
+        while true do
+            if ZombRand(2) == 0 then
+                local condLoss = ZombRand(math.ceil(self.spareItem:getConditionMax() * 0.2)) + 1
+                if self.spareItem:getCondition() > condLoss then
+                    self.spareItem:setCondition(self.spareItem:getCondition() - condLoss)
+                else
+                    self.character:getInventory():Remove(self.spareItem)
+                    break
+                end
+            else
+                break
+            end
+        end
     end
 
     for _, material in ipairs(self.materials) do

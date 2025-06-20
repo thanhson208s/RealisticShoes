@@ -1,7 +1,6 @@
 -- TODO:
 -- Stomping damage, stamina, crit
 -- Increase trip chance
--- Add tailoring xp
 
 RealisticShoes = RealisticShoes or {}
 RealisticShoes.StartingMenSizes = {}

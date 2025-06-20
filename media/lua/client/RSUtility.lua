@@ -1,18 +1,8 @@
 RealisticShoes = RealisticShoes or {}
 
-RealisticShoes.SHOE_NAMES = {
-    "Shoes", "Boots", "Heels", "Hitops", "Moccasins", "Sneakers"
-}
-
 -- Exclude sandals, footwraps, flip flops, slippers, footwear
 function RealisticShoes.canResizeShoes(item)
-    local name = item:getDisplayName():lower()
-    for _, shoeType in ipairs(RealisticShoes.SHOE_NAMES) do
-        if name:find(shoeType:lower(), 1, true) then
-            return true
-        end
-    end
-    return false
+    return item:getStompPower() >= 1.5
 end
 
 RealisticShoes.SIZES = {
@@ -329,15 +319,16 @@ end
 
 function RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
     local allMaterials = player:getInventory():getItemsFromType(materialType, true)
-    if allMaterials:size() >= quantity then
-        local materials = {}
-        for i = 0, quantity - 1 do
+    local materials = {}
+    local total = 0
+    for i = 0, allMaterials:size() - 1 do
+        if total < quantity then
             table.insert(materials, allMaterials:get(i))
         end
-        return materials, allMaterials:size()
-    else
-        return nil, allMaterials:size()
+        total = total + RealisticShoes.getUseCount(allMaterials:get(i))
     end
+
+    return total >= quantity and materials or nil, total
 end
 
 function RealisticShoes.predicateScissors(item)
@@ -358,12 +349,7 @@ function RealisticShoes.addReconditionOption(item, player, context)
     local subMenu = context:getNew(context)
     context:addSubMenu(option, subMenu)
 
-    local repairOptions = {
-        ["Base.Glue"] = 2,
-        ["Base.DuctTape"] = 2,
-        ["Base.Scotchtape"] = 2
-    }
-
+    local repairOptions = RealisticShoes.RepairOptions
     local repairMaterials = {}
     for materialType, quantity in pairs(repairOptions) do
         local materials, count = RealisticShoes.getRequiredMaterialsForRecondition(player, materialType, quantity)
