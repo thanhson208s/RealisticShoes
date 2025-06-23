@@ -1,6 +1,8 @@
 -- TODO:
 -- Stomping damage, stamina, crit
--- Increase trip chance
+-- Increase trip chance for loose shoes
+-- Stretch shoes by freezing water bag
+-- Shrink shoes by submersion and drying
 
 RealisticShoes = RealisticShoes or {}
 RealisticShoes.StartingMenSizes = {}
@@ -10,7 +12,11 @@ RealisticShoes.TailoringXpMultiplier = 1.0
 RealisticShoes.EnableShoesDegrading = true
 RealisticShoes.ChanceToDegradeOnFailure = 0.5
 RealisticShoes.IncreasePainMultiplier = 1.0
+RealisticShoes.DegradingChanceMultiplier = 1.0
+RealisticShoes.InsulationReduceMultiplier = 1.0
+RealisticShoes.StompPowerReduceMultiplier = 1.0
 RealisticShoes.Debug = true
+RealisticShoes.UpdateShoesTimer = -1
 
 function RealisticShoes.onInitMod()
     local startingMenSize = SandboxVars.RealisticShoes.StartingMenSize or 1
@@ -36,6 +42,9 @@ function RealisticShoes.onInitMod()
     RealisticShoes.EnableShoesDegrading = SandboxVars.RealisticShoes.EnableShoesDegrading
     RealisticShoes.ChanceToDegradeOnFailure = SandboxVars.RealisticShoes.ChanceToDegradeOnFailure or 0.5
     RealisticShoes.IncreasePainMultiplier = SandboxVars.RealisticShoes.IncreasePainMultiplier or 1.0
+    RealisticShoes.DegradingChanceMultiplier = SandboxVars.RealisticShoes.DegradingChanceMultiplier or 1.0
+    RealisticShoes.InsluationReduceMultiplier = SandboxVars.RealisticShoes.InsulationReduceMultiplier or 1.0
+    RealisticShoes.StompPowerReduceMultiplier = SandboxVars.RealisticShoes.StompPowerReduceMultiplier or 1.0
 end
 Events.OnInitGlobalModData.Add(RealisticShoes.onInitMod)
 
@@ -57,6 +66,7 @@ Events.OnCreatePlayer.Add(RealisticShoes.onCreatePlayer)
 
 function RealisticShoes.onUpdatePlayer(player)
     if not player or not player:isLocalPlayer() then return end
+    RealisticShoes.UpdateShoesTimer = (RealisticShoes.UpdateShoesTimer + 1) % 10
 
     local shoes = player:getWornItem("Shoes")
     if shoes then
@@ -80,46 +90,23 @@ function RealisticShoes.onUpdatePlayer(player)
             footL:setAdditionalPain(footL:getAdditionalPain() + additionalPain * getGameTime():getMultiplier())
         end
 
-        -- TODO: shoes taking damage from walking on broken glass
-        local square = player:getCurrentSquare()
-        if square and square:getBrokenGlass() then
+        if RealisticShoes.DegradingChanceMultiplier > 0 and RealisticShoes.UpdateShoesTimer == 0 then
+            local square = player:getCurrentSquare()
 
+            if square and square:getBrokenGlass() then
+                local condLowerChance = math.ceil((40 + shoes:getConditionLowerChance() * 2) / RealisticShoes.DegradingChanceMultiplier)
+                if ZombRand(condLowerChance) == 0 then
+                    shoes:setCondition(shoes:getCondition() - 1)
+                end
+            end
+
+            if square and square:getDeadBody() then
+                local condLowerChance = math.ceil((80 + shoes:getConditionLowerChance() * 4) / RealisticShoes.DegradingChanceMultiplier)
+                if ZombRand(condLowerChance) == 0 then
+                    shoes:setCondition(shoes:getCondition() - 1)
+                end
+            end
         end
-
-        -- TODO: shoes taking damage from walking on corpses
-        if square and square:getDeadBody() then
-
-        end
-
-        -- TODO: loose shoes reduce running/sprinting speed (need to sync between clients, move this code to server)
-        -- if (player:isRunning() or player:isSprinting()) and not player:isAiming() and not player:isInTreesNoBush() and getCore():getGameMode() ~= "Tutorial" then
-        --     -- recalculate move speed
-        --     local runSpeedModByBags = 0.0
-        --     for i = 0, player:getWornItems():size() - 1 do
-        --         local bag = player:getWornItems():getItemByIndex(i)
-        --         if instanceof(bag, "InventoryContainer") then
-        --             runSpeedModByBags = runSpeedModByBags + player:calcRunSpeedModByBag(bag)
-        --         end
-        --     end
-        --     if player:getPrimaryHandItem() and instanceof(player:getPrimaryHandItem(), "InventoryContainer") then
-        --         runSpeedModByBags = runSpeedModByBags + player:calcRunSpeedModByBag(player:getPrimaryHandItem())
-        --     end
-        --     if player:getSecondaryHandItem() and instanceof(player:getSecondaryHandItem(), "InventoryContainer") then
-        --         runSpeedModByBags = runSpeedModByBags + player:calcRunSpeedModByBag(player:getSecondaryHandItem())
-        --     end
-
-        --     local speed = (player:calculateBaseSpeed() - 0.15) * (player:getRunSpeedModifier() + runSpeedModByBags) + player:getPerkLevel(Perks.Sprinting) / 20.0
-        --     -- speed = speed * RealisticShoes.getSpeedModifier(shoes, player)
-        --     -- speed = speed - RealisticShoes.getSpeedModifier(shoes, player)
-        --     speed = speed - math.abs(player:getFootInjurySpeedModifier() / 1.5)
-        --     if player:getSlowFactor() > 0.0 then speed = speed * 0.05 end
-        --     speed = math.min(1, speed)
-        --     if player:getBodyDamage() and player:getBodyDamage():getThermoregulator() then
-        --         speed = speed * player:getBodyDamage():getThermoregulator():getMovementModifier()
-        --     end
-
-        --     player:setVariable("WalkSpeed", speed * getGameTime():getAnimSpeedFix())
-        -- end
     end
 end
 Events.OnPlayerUpdate.Add(RealisticShoes.onUpdatePlayer)
@@ -129,19 +116,15 @@ function RealisticShoes.onStompZombie(player, weapon, zombie, damage)
     if not (zombie and instanceof(zombie, "IsoZombie")) then return end
     if not (player:isAimAtFloor() and player:isDoShove() and weapon and weapon:getType() == "BareHands") then return end
 
-    print('RealisticShoes ' .. tostring(damage))
-
     local shoes = player:getWornItem("Shoes")
     if shoes then
         local playerSize = RealisticShoes.getPlayerSize(player)
         local data = RealisticShoes.getOrCreateModData(shoes)
         local diff = data.size - playerSize
 
-        if diff < 0 then
+        if diff < 0 then    -- stomping with tight shoes causes pain
             local mul = math.abs(diff) + 0.5
-            -- stomping on head causes more pain
             if zombie:getHitHeadWhileOnFloor() > 0 then mul = mul * 2.0 end
-            -- shoes with higher stomp power will absorb more impact
             mul = mul * math.sqrt(1 / shoes:getStompPower())
 
             local bodyPart = player:getBodyDamage():getBodyPart(BodyPartType.Foot_R)

@@ -1,8 +1,17 @@
 RealisticShoes = RealisticShoes or {}
 
--- Exclude sandals, footwraps, flip flops, slippers, footwear
+RealisticShoes.SHOE_NAMES = {
+    "Shoes", "Boots", "Sneakers"
+}
+
 function RealisticShoes.canResizeShoes(item)
-    return item:getStompPower() >= 1.5
+    local name = item:getDisplayName():lower()
+    for _, shoeType in ipairs(RealisticShoes.SHOE_NAMES) do
+        if name:find(shoeType:lower(), 1, true) then
+            return true
+        end
+    end
+    return false
 end
 
 RealisticShoes.SIZES = {
@@ -174,7 +183,7 @@ function RealisticShoes.getOrCreateModData(shoes, size)
             size = RealisticShoes.getRandomSize(false)
         end
 
-        data.RealisticShoes = {size = size, reveal = false, hint = false}
+        data.RealisticShoes = {size = size, reveal = false, hint = false, resized = 0}
     end
 
     return data.RealisticShoes
@@ -454,11 +463,49 @@ function RealisticShoes.reconditionShoesUsingSpare(player, item, scissors, spare
     ISTimedActionQueue.add(ISReconditionShoesUsingSpare:new(player, item, scissors, spareItem, materials))
 end
 
+RealisticShoes.OriginalStats = {}
+
+function RealisticShoes.getOriginalStats(item)
+    local fullType = item:getFullType()
+    if not RealisticShoes.OriginalStats[fullType] then
+        local sampleItem = RealisticShoes.createItem(fullType)
+        RealisticShoes.OriginalStats[fullType] = {
+            insulation = sampleItem:getInsulation() or 0,
+            stompPower = sampleItem:getStompPower() or 0,
+            runSpeedMod = sampleItem:getRunSpeedModifier() or 0
+        }
+    end
+
+    return RealisticShoes.OriginalStats[fullType]
+end
+
+function RealisticShoes.getInsulationReduction(diff)
+    return (0.5 + 0.5 / (1 + RealisticShoes.InsulationReduceMultiplier * diff))
+end
+
+function RealisticShoes.getStompPowerReduction(diff)
+    return (0.5 + 0.5 / (1 + RealisticShoes.StompPowerReduceMultiplier * diff))
+end
+
 function RealisticShoes.updateShoesByDiff(shoes, player)
+    local stats = RealisticShoes.getOriginalStats(shoes)
+    local insulation = stats.insulation
+    local stompPower = stats.stompPower
+    local runSpeedMod = stats.runSpeedMod
+
     if player:isEquippedClothing(shoes) then
         local playerSize = RealisticShoes.getPlayerSize(player)
         local data = RealisticShoes.getOrCreateModData(shoes)
         local diff = data.size - playerSize
-    else
+
+        if diff > 0 then
+            insulation = insulation * RealisticShoes.getInsulationReduction(diff)
+            stompPower = stompPower * RealisticShoes.getStompPowerReduction(diff)
+            runSpeedMod = runSpeedMod - diff * 0.5  -- cosmetic only
+        end
     end
+
+    item:setInsulation(math.min(insulation, 1))
+    item:setStompPower(math.max(stompPower, 0))
+    item:getRunSpeedModifier(math.max(runSpeedMod, 0))
 end
