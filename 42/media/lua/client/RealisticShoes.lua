@@ -150,6 +150,8 @@ function RealisticShoes.onFillInvObjMenu(playerId, context, items)
     end
     if shoes and RealisticShoes.isShoes(shoes) then
         RealisticShoes.addReconditionOption(shoes, player, context)
+        RealisticShoes.addUpsizeOption(shoes, player, context)
+        RealisticShoes.addDownsizeOption(shoes, player, context)
     end
 
     RealisticShoes.addCheckSizeOption(items, player, context)

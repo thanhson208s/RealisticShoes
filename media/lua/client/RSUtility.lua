@@ -480,14 +480,16 @@ function RealisticShoes.getOriginalStats(item)
 end
 
 function RealisticShoes.getInsulationReduction(diff)
-    return (0.5 + 0.5 / (1 + RealisticShoes.InsulationReduceMultiplier * diff))
+    return 0.5 + 0.5 / (1 + RealisticShoes.InsulationReduceMultiplier * diff)
 end
 
 function RealisticShoes.getStompPowerReduction(diff)
-    return (0.5 + 0.5 / (1 + RealisticShoes.StompPowerReduceMultiplier * diff))
+    return 0.5 + 0.5 / (1 + RealisticShoes.StompPowerReduceMultiplier * diff)
 end
 
 function RealisticShoes.updateShoesByDiff(shoes, player)
+    if not (shoes and instanceof(shoes, "Clothing")) then return end
+
     local stats = RealisticShoes.getOriginalStats(shoes)
     local insulation = stats.insulation
     local stompPower = stats.stompPower
@@ -505,7 +507,14 @@ function RealisticShoes.updateShoesByDiff(shoes, player)
         end
     end
 
-    item:setInsulation(math.min(insulation, 1))
-    item:setStompPower(math.max(stompPower, 0))
-    item:getRunSpeedModifier(math.max(runSpeedMod, 0))
+    shoes:setInsulation(math.min(insulation, 1))
+    shoes:setStompPower(math.max(stompPower, 0))
+    shoes:setRunSpeedModifier(math.max(runSpeedMod, 0))
+end
+
+function RealisticShoes.addUpsizeOption(shoes, player, context)
+    
+end
+
+function RealisticShoes.addDownsizeOption(shoes, player, context)
 end
